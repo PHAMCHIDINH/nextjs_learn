@@ -1,153 +1,338 @@
 import Link from 'next/link'
-import { 
-  ShoppingBag, 
-  Shield, 
-  Users, 
-  Zap, 
-  BookOpen, 
-  Laptop, 
-  Home, 
-  PenTool,
+import {
   ArrowRight,
+  BookOpen,
   CheckCircle2,
-  Star
+  Clock3,
+  GraduationCap,
+  Laptop,
+  MessageSquareText,
+  PenTool,
+  Shield,
+  Sparkles,
+  Star,
+  TrendingUp,
+  Users,
+  Warehouse,
 } from 'lucide-react'
-import { Button } from '@/shared/ui/button'
-import { Card, CardContent } from '@/shared/ui/card'
-import { Badge } from '@/shared/ui/badge'
-import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar'
-import { Header } from '@/components/header'
 import { Footer } from '@/components/footer'
+import { Header } from '@/components/header'
+import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar'
+import { Badge } from '@/shared/ui/badge'
+import { Button } from '@/shared/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
+import { Separator } from '@/shared/ui/separator'
+import type { Category } from '@/lib/types'
 
-const features = [
+const categorySpotlights: Array<{
+  key: Category
+  name: string
+  count: string
+  accent: string
+  icon: typeof BookOpen
+  summary: string
+}> = [
+  {
+    key: 'textbook',
+    name: 'Giáo trình',
+    count: '234 tin',
+    accent: 'from-sky-500/20 to-cyan-500/5',
+    icon: BookOpen,
+    summary: 'Sách chuyên ngành, note môn học và bộ đề từ sinh viên khóa trên.',
+  },
+  {
+    key: 'electronics',
+    name: 'Đồ điện tử',
+    count: '156 tin',
+    accent: 'from-amber-500/20 to-orange-500/5',
+    icon: Laptop,
+    summary: 'Laptop, máy tính bảng, phụ kiện học tập và đồ công nghệ đã qua sử dụng.',
+  },
+  {
+    key: 'dorm',
+    name: 'Đồ phòng trọ',
+    count: '189 tin',
+    accent: 'from-emerald-500/20 to-lime-500/5',
+    icon: Warehouse,
+    summary: 'Quạt, bàn học, đèn bàn, tủ mini và các món giúp ở trọ gọn gàng hơn.',
+  },
+  {
+    key: 'study',
+    name: 'Dụng cụ học tập',
+    count: '98 tin',
+    accent: 'from-rose-500/20 to-fuchsia-500/5',
+    icon: PenTool,
+    summary: 'Máy tính cầm tay, bút vẽ, bảng viết và nhiều món phục vụ học nhóm.',
+  },
+]
+
+const trustPoints = [
   {
     icon: Shield,
     title: 'Xác minh sinh viên',
-    description: 'Chỉ sinh viên cùng trường mới được tham gia. Xác minh qua email trường hoặc mã số sinh viên.'
+    description: 'Mua bán trong một mạng lưới đã được xác thực thay vì chợ rộng ngoài trường.',
   },
   {
-    icon: Users,
-    title: 'Cộng đồng tin cậy',
-    description: 'Mua bán với bạn bè cùng trường, gặp mặt trực tiếp tại campus, an toàn và thuận tiện.'
+    icon: MessageSquareText,
+    title: 'Chat và chốt nhanh',
+    description: 'Liên lạc trực tiếp, hẹn xem hàng tại campus và đồng bộ theo từng sản phẩm.',
   },
   {
-    icon: Zap,
-    title: 'Giao dịch nhanh chóng',
-    description: 'Chat trực tiếp với người bán, thỏa thuận giá và hẹn gặp chỉ trong vài phút.'
-  }
+    icon: Clock3,
+    title: 'Lên tin trong vài phút',
+    description: 'Đăng bài gọn, rõ, tập trung vào ảnh, giá và thông tin người bán cần biết.',
+  },
 ]
 
-const categories = [
-  { icon: BookOpen, name: 'Giáo trình', count: 234, color: 'bg-blue-500/10 text-blue-600' },
-  { icon: Laptop, name: 'Điện tử', count: 156, color: 'bg-orange-500/10 text-orange-600' },
-  { icon: Home, name: 'Đồ phòng trọ', count: 189, color: 'bg-green-500/10 text-green-600' },
-  { icon: PenTool, name: 'Dụng cụ học tập', count: 98, color: 'bg-purple-500/10 text-purple-600' },
+const storyStats = [
+  { value: '5,000+', label: 'sinh viên tham gia' },
+  { value: '12,000+', label: 'sản phẩm đã đăng' },
+  { value: '8,500+', label: 'giao dịch đã khớp' },
+  { value: '98%', label: 'người dùng quay lại' },
 ]
 
-const stats = [
-  { value: '5,000+', label: 'Sinh viên' },
-  { value: '12,000+', label: 'Sản phẩm' },
-  { value: '8,500+', label: 'Giao dịch' },
-  { value: '98%', label: 'Hài lòng' },
+const steps = [
+  {
+    index: '01',
+    title: 'Tạo tài khoản bằng email trường',
+    description: 'Đăng ký nhanh, xác minh danh tính và bắt đầu tham gia chợ nội bộ.',
+  },
+  {
+    index: '02',
+    title: 'Đăng tin hoặc tìm theo danh mục',
+    description: 'Lọc theo giá, khoa, tình trạng và xem được người đăng có xác minh hay không.',
+  },
+  {
+    index: '03',
+    title: 'Chat, hẹn gặp, giao dịch',
+    description: 'Chốt giá, hẹn điểm trong campus và hoàn tất giao dịch an toàn hơn.',
+  },
 ]
 
 const testimonials = [
   {
-    name: 'Nguyễn Minh Anh',
-    role: 'Sinh viên năm 3 - CNTT',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Anh',
-    content: 'Mình đã bán được bộ giáo trình cũ với giá tốt và mua được laptop secondhand chất lượng. Rất tiện lợi!'
+    name: 'Minh Anh',
+    role: 'CNTT năm 3',
+    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=anh',
+    content: 'Bán giáo trình xong trong buổi tối, tiền chốt vào ví ngay trong tuần đầu.',
   },
   {
-    name: 'Trần Văn Hùng',
-    role: 'Sinh viên năm 2 - Kinh tế',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Hung',
-    content: 'Tiết kiệm được khá nhiều tiền khi mua đồ từ các anh chị khóa trên. Giao dịch nhanh gọn, an toàn.'
+    name: 'Văn Hùng',
+    role: 'Kinh tế năm 2',
+    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=hung',
+    content: 'Mua được laptop cũ giá dễ hơn chợ ngoài mà vẫn gặp người bán cùng trường.',
   },
   {
-    name: 'Lê Thu Hương',
-    role: 'Sinh viên năm 4 - Marketing',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Huong',
-    content: 'Sắp ra trường nên bán hết đồ trong phòng. Chỉ cần đăng tin là có người liên hệ ngay!'
-  }
+    name: 'Thu Hương',
+    role: 'Marketing năm 4',
+    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=huong',
+    content: 'Lúc chuyển trọ chỉ cần đăng lô đồ, từ bàn học đến quạt mini đều có người hỏi.',
+  },
 ]
 
-export default function LandingPage() {
+export default function HomePage() {
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="relative min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,_rgba(34,197,94,0.18),_transparent_28%),linear-gradient(180deg,_rgba(250,250,249,1)_0%,_rgba(244,244,245,1)_100%)]">
       <Header />
-      
-      <main className="flex-1">
-        {/* Hero Section */}
-        <section className="relative overflow-hidden bg-gradient-to-b from-primary/5 via-background to-background py-20 md:py-32">
-          <div className="container mx-auto px-4">
-            <div className="mx-auto max-w-4xl text-center">
-              <Badge className="mb-6 bg-primary/10 text-primary hover:bg-primary/20">
-                Dành riêng cho sinh viên
-              </Badge>
-              <h1 className="mb-6 text-balance text-4xl font-bold tracking-tight md:text-6xl">
-                Chợ mua bán nội bộ
-                <span className="text-primary"> sinh viên đại học</span>
-              </h1>
-              <p className="mx-auto mb-8 max-w-2xl text-lg text-muted-foreground md:text-xl">
-                Nền tảng mua bán đồ cũ an toàn, tiện lợi. Từ giáo trình, đồ điện tử đến đồ phòng trọ - 
-                tất cả đều có giá tốt nhất từ sinh viên cùng trường.
-              </p>
-              <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
-                <Link href="/auth?mode=register">
-                  <Button size="lg" className="gap-2 text-base">
-                    Bắt đầu ngay
-                    <ArrowRight className="h-4 w-4" />
-                  </Button>
-                </Link>
-                <Link href="/marketplace">
-                  <Button size="lg" variant="outline" className="text-base">
-                    Khám phá chợ
-                  </Button>
-                </Link>
+
+      <main className="relative">
+        <section className="relative overflow-hidden border-b border-border/60">
+          <div className="absolute inset-x-0 top-0 h-64 bg-[radial-gradient(circle_at_top_right,_rgba(245,158,11,0.16),_transparent_32%),radial-gradient(circle_at_top_left,_rgba(34,197,94,0.14),_transparent_30%)]" />
+          <div className="container mx-auto px-4 py-16 md:py-24">
+            <div className="grid gap-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
+              <div className="max-w-3xl">
+                <Badge className="mb-5 rounded-full border border-primary/20 bg-primary/10 px-4 py-1 text-primary hover:bg-primary/10">
+                  Nơi mua bán riêng cho sinh viên
+                </Badge>
+                <h1 className="max-w-4xl text-balance text-5xl font-semibold tracking-tight text-foreground md:text-7xl">
+                  Mua bán đồ cũ trong trường theo cách nhanh, đẹp và đáng tin hơn.
+                </h1>
+                <p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground md:text-xl">
+                  Từ giáo trình, laptop đến đồ phòng trọ. Mỗi giao dịch đều bắt đầu từ một cộng đồng nhỏ hơn,
+                  rõ người bán hơn và dễ hẹn gặp hơn.
+                </p>
+                <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                  <Link href="/marketplace">
+                    <Button size="lg" className="h-12 gap-2 rounded-full px-6 text-base">
+                      Vào marketplace
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                  <Link href="/auth?mode=register">
+                    <Button size="lg" variant="outline" className="h-12 rounded-full px-6 text-base">
+                      Tạo tài khoản
+                    </Button>
+                  </Link>
+                </div>
+                <div className="mt-8 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                  <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/80 px-3 py-1.5">
+                    <Shield className="h-4 w-4 text-primary" />
+                    Xác minh theo email trường
+                  </span>
+                  <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/80 px-3 py-1.5">
+                    <MessageSquareText className="h-4 w-4 text-primary" />
+                    Chat theo từng sản phẩm
+                  </span>
+                  <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/80 px-3 py-1.5">
+                    <TrendingUp className="h-4 w-4 text-primary" />
+                    Giá tốt hơn chợ rộng
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid gap-4">
+                <Card className="overflow-hidden border-border/60 bg-zinc-950 text-white shadow-2xl shadow-zinc-950/10">
+                  <CardContent className="p-0">
+                    <div className="border-b border-white/10 px-6 py-5">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="text-sm uppercase tracking-[0.24em] text-emerald-300/80">Market Pulse</p>
+                          <h2 className="mt-2 text-2xl font-semibold">Sinh viên đang cần mua gì tuần này?</h2>
+                        </div>
+                        <Sparkles className="h-5 w-5 text-amber-300" />
+                      </div>
+                    </div>
+                    <div className="grid gap-3 p-6">
+                      {[
+                        { label: 'Giáo trình môn đại cương', delta: '+26%' },
+                        { label: 'Tai nghe và bàn phím học online', delta: '+18%' },
+                        { label: 'Quạt mini và bàn học phòng trọ', delta: '+14%' },
+                      ].map((item) => (
+                        <div
+                          key={item.label}
+                          className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-sm text-zinc-100">{item.label}</p>
+                            <span className="rounded-full bg-emerald-400/15 px-2.5 py-1 text-xs font-medium text-emerald-300">
+                              {item.delta}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {storyStats.map((stat) => (
+                    <Card key={stat.label} className="border-border/60 bg-white/80 shadow-sm backdrop-blur">
+                      <CardContent className="p-5">
+                        <p className="text-3xl font-semibold text-foreground">{stat.value}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">{stat.label}</p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
-          
-          {/* Background decoration */}
-          <div className="absolute -top-40 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-primary/20 blur-3xl" />
         </section>
 
-        {/* Stats Section */}
-        <section className="border-y border-border bg-muted/30 py-12">
-          <div className="container mx-auto px-4">
-            <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
-              {stats.map((stat) => (
-                <div key={stat.label} className="text-center">
-                  <div className="text-3xl font-bold text-primary md:text-4xl">{stat.value}</div>
-                  <div className="mt-1 text-sm text-muted-foreground">{stat.label}</div>
-                </div>
-              ))}
+        <section className="container mx-auto px-4 py-16 md:py-20">
+          <div className="mb-8 flex items-end justify-between gap-4">
+            <div className="max-w-2xl">
+              <Badge variant="outline" className="rounded-full bg-background/80">
+                Danh mục hot
+              </Badge>
+              <h2 className="mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
+                Chọn nhanh khu vực mua bán mà sinh viên vào nhiều nhất.
+              </h2>
             </div>
+            <Link href="/marketplace" className="hidden md:block">
+              <Button variant="ghost" className="gap-2">
+                Xem tất cả
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+
+          <div className="grid gap-5 lg:grid-cols-2">
+            {categorySpotlights.map((category) => {
+              const Icon = category.icon
+
+              return (
+                <Link key={category.key} href={`/marketplace?category=${category.key}`}>
+                  <Card className="group h-full overflow-hidden border-border/60 bg-white/85 shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl">
+                    <CardContent className="relative p-6">
+                      <div className={`absolute inset-0 bg-gradient-to-br ${category.accent} opacity-80`} />
+                      <div className="relative flex h-full flex-col justify-between gap-6">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex size-12 items-center justify-center rounded-2xl bg-zinc-950 text-white shadow-lg shadow-zinc-950/10">
+                            <Icon className="h-5 w-5" />
+                          </div>
+                          <Badge className="rounded-full bg-background/85 text-foreground hover:bg-background/85">
+                            {category.count}
+                          </Badge>
+                        </div>
+                        <div>
+                          <h3 className="text-2xl font-semibold tracking-tight">{category.name}</h3>
+                          <p className="mt-2 max-w-md text-sm leading-7 text-muted-foreground">
+                            {category.summary}
+                          </p>
+                        </div>
+                        <div className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
+                          Khám phá danh mục
+                          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              )
+            })}
           </div>
         </section>
 
-        {/* Features Section */}
-        <section className="py-20 md:py-28">
-          <div className="container mx-auto px-4">
-            <div className="mx-auto mb-16 max-w-2xl text-center">
-              <h2 className="mb-4 text-3xl font-bold md:text-4xl">
-                Tại sao chọn Chợ Sinh Viên?
+        <section className="border-y border-border/60 bg-zinc-950 py-16 text-white md:py-20">
+          <div className="container mx-auto grid gap-6 px-4 md:grid-cols-3">
+            {trustPoints.map((item) => {
+              const Icon = item.icon
+
+              return (
+                <Card key={item.title} className="border-white/10 bg-white/5 text-white shadow-none backdrop-blur">
+                  <CardContent className="p-6">
+                    <div className="mb-5 flex size-12 items-center justify-center rounded-2xl bg-white/10">
+                      <Icon className="h-5 w-5 text-emerald-300" />
+                    </div>
+                    <h3 className="text-xl font-semibold">{item.title}</h3>
+                    <p className="mt-2 text-sm leading-7 text-zinc-300">{item.description}</p>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+        </section>
+
+        <section className="container mx-auto px-4 py-16 md:py-20">
+          <div className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-start">
+            <div className="max-w-xl">
+              <Badge variant="outline" className="rounded-full bg-background/80">
+                Quy trình 3 bước
+              </Badge>
+              <h2 className="mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
+                Đúng như một chợ nội bộ, nhưng được tổ chức gọn và dễ giao dịch hơn.
               </h2>
-              <p className="text-muted-foreground">
-                Được thiết kế riêng cho sinh viên, với những tính năng giúp việc mua bán an toàn và tiện lợi hơn bao giờ hết.
+              <p className="mt-4 text-base leading-8 text-muted-foreground">
+                Mục tiêu không phải là thêm nhiều tính năng. Mục tiêu là giúp sinh viên đăng, tìm, chat và chốt
+                nhanh hơn trong một không gian nhỏ và dễ tin hơn.
               </p>
             </div>
-            
-            <div className="grid gap-8 md:grid-cols-3">
-              {features.map((feature) => (
-                <Card key={feature.title} className="relative overflow-hidden border-border/50 bg-card transition-all hover:border-primary/30 hover:shadow-lg">
-                  <CardContent className="p-6">
-                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                      <feature.icon className="h-6 w-6 text-primary" />
+
+            <div className="space-y-4">
+              {steps.map((step, index) => (
+                <Card key={step.index} className="border-border/60 bg-white/80 shadow-sm">
+                  <CardContent className="flex gap-4 p-6">
+                    <div className="flex flex-col items-center">
+                      <div className="flex size-12 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
+                        {step.index}
+                      </div>
+                      {index < steps.length - 1 ? <div className="mt-3 h-full w-px bg-border" /> : null}
                     </div>
-                    <h3 className="mb-2 text-xl font-semibold">{feature.title}</h3>
-                    <p className="text-muted-foreground">{feature.description}</p>
+                    <div className="pb-2">
+                      <h3 className="text-lg font-semibold">{step.title}</h3>
+                      <p className="mt-2 text-sm leading-7 text-muted-foreground">{step.description}</p>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -155,146 +340,112 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Categories Section */}
-        <section className="bg-muted/30 py-20 md:py-28">
-          <div className="container mx-auto px-4">
-            <div className="mx-auto mb-16 max-w-2xl text-center">
-              <h2 className="mb-4 text-3xl font-bold md:text-4xl">
-                Danh mục phổ biến
-              </h2>
-              <p className="text-muted-foreground">
-                Tìm kiếm theo danh mục để nhanh chóng tìm được món đồ bạn cần.
-              </p>
-            </div>
-            
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {categories.map((category) => (
-                <Link key={category.name} href={`/marketplace?category=${category.name.toLowerCase()}`}>
-                  <Card className="group cursor-pointer border-border/50 transition-all hover:border-primary/30 hover:shadow-lg">
-                    <CardContent className="flex items-center gap-4 p-6">
-                      <div className={`flex h-14 w-14 items-center justify-center rounded-xl ${category.color}`}>
-                        <category.icon className="h-7 w-7" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold group-hover:text-primary">{category.name}</h3>
-                        <p className="text-sm text-muted-foreground">{category.count} sản phẩm</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* How it works */}
-        <section className="py-20 md:py-28">
-          <div className="container mx-auto px-4">
-            <div className="mx-auto mb-16 max-w-2xl text-center">
-              <h2 className="mb-4 text-3xl font-bold md:text-4xl">
-                Bắt đầu trong 3 bước đơn giản
-              </h2>
-              <p className="text-muted-foreground">
-                Tham gia cộng đồng mua bán sinh viên chỉ trong vài phút.
-              </p>
-            </div>
-            
-            <div className="mx-auto grid max-w-4xl gap-8 md:grid-cols-3">
-              {[
-                { step: '01', title: 'Đăng ký tài khoản', desc: 'Xác minh bằng email trường hoặc mã số sinh viên' },
-                { step: '02', title: 'Đăng tin hoặc tìm kiếm', desc: 'Đăng bán đồ của bạn hoặc tìm kiếm món đồ cần mua' },
-                { step: '03', title: 'Chat và giao dịch', desc: 'Liên hệ người bán, thỏa thuận và giao dịch trực tiếp' },
-              ].map((item, index) => (
-                <div key={item.step} className="relative text-center">
-                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary text-2xl font-bold text-primary-foreground">
-                    {item.step}
-                  </div>
-                  <h3 className="mb-2 text-xl font-semibold">{item.title}</h3>
-                  <p className="text-muted-foreground">{item.desc}</p>
-                  {index < 2 && (
-                    <div className="absolute left-[60%] top-8 hidden h-0.5 w-full bg-border md:block" />
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Testimonials */}
-        <section className="bg-muted/30 py-20 md:py-28">
-          <div className="container mx-auto px-4">
-            <div className="mx-auto mb-16 max-w-2xl text-center">
-              <h2 className="mb-4 text-3xl font-bold md:text-4xl">
-                Sinh viên nói gì về chúng tôi?
-              </h2>
-              <p className="text-muted-foreground">
-                Hàng nghìn sinh viên đã tin tưởng sử dụng Chợ Sinh Viên.
-              </p>
-            </div>
-            
-            <div className="grid gap-6 md:grid-cols-3">
-              {testimonials.map((testimonial) => (
-                <Card key={testimonial.name} className="border-border/50">
-                  <CardContent className="p-6">
+        <section className="container mx-auto px-4 pb-16 md:pb-20">
+          <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+            <Card className="overflow-hidden border-border/60 bg-white/85 shadow-xl shadow-zinc-950/5">
+              <CardHeader className="pb-0">
+                <Badge variant="outline" className="w-fit rounded-full bg-background/80">
+                  Phản hồi từ người dùng
+                </Badge>
+                <CardTitle className="mt-4 text-3xl font-semibold tracking-tight">
+                  Sinh viên sử dụng và quay lại vì nó giải quyết đúng một việc.
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-4 p-6 md:grid-cols-3">
+                {testimonials.map((testimonial) => (
+                  <div key={testimonial.name} className="rounded-3xl border border-border/70 bg-background/80 p-5">
                     <div className="mb-4 flex gap-1">
-                      {[...Array(5)].map((_, i) => (
-                        <Star key={i} className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                      {Array.from({ length: 5 }).map((_, index) => (
+                        <Star key={`${testimonial.name}-${index}`} className="h-4 w-4 fill-amber-400 text-amber-400" />
                       ))}
                     </div>
-                    <p className="mb-6 text-muted-foreground">&quot;{testimonial.content}&quot;</p>
+                    <p className="min-h-20 text-sm leading-7 text-muted-foreground">{testimonial.content}</p>
+                    <Separator className="my-4" />
                     <div className="flex items-center gap-3">
                       <Avatar>
                         <AvatarImage src={testimonial.avatar} alt={testimonial.name} />
                         <AvatarFallback>{testimonial.name.charAt(0)}</AvatarFallback>
                       </Avatar>
                       <div>
-                        <div className="font-medium">{testimonial.name}</div>
-                        <div className="text-sm text-muted-foreground">{testimonial.role}</div>
+                        <p className="font-medium">{testimonial.name}</p>
+                        <p className="text-xs text-muted-foreground">{testimonial.role}</p>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </section>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
 
-        {/* CTA Section */}
-        <section className="py-20 md:py-28">
-          <div className="container mx-auto px-4">
-            <Card className="overflow-hidden border-primary/20 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent">
-              <CardContent className="flex flex-col items-center gap-8 p-12 text-center md:flex-row md:text-left">
-                <div className="flex-1">
-                  <h2 className="mb-4 text-3xl font-bold md:text-4xl">
-                    Sẵn sàng tham gia chưa?
+            <Card className="border-border/60 bg-[linear-gradient(135deg,_rgba(9,9,11,1)_0%,_rgba(39,39,42,0.96)_70%,_rgba(34,197,94,0.22)_100%)] text-white shadow-xl shadow-zinc-950/10">
+              <CardContent className="flex h-full flex-col justify-between p-8">
+                <div>
+                  <Badge className="rounded-full bg-white/10 text-white hover:bg-white/10">Sẵn sàng bắt đầu?</Badge>
+                  <h2 className="mt-5 text-3xl font-semibold tracking-tight md:text-4xl">
+                    Đăng ký miễn phí và đưa món đồ tiếp theo của bạn lên chợ ngay hôm nay.
                   </h2>
-                  <p className="mb-6 text-muted-foreground">
-                    Đăng ký miễn phí ngay hôm nay và bắt đầu mua bán với sinh viên cùng trường.
+                  <p className="mt-4 text-sm leading-8 text-zinc-300">
+                    Phù hợp cho tân sinh viên cần tiết kiệm, người chuyển trọ cần thanh lý nhanh, và bất kỳ ai muốn
+                    mua đồ cũ gọn hơn cho mỗi học kỳ.
                   </p>
-                  <ul className="mb-6 space-y-2">
-                    {['Đăng ký miễn phí', 'Không mất phí giao dịch', 'Hỗ trợ 24/7'].map((item) => (
-                      <li key={item} className="flex items-center justify-center gap-2 text-sm md:justify-start">
-                        <CheckCircle2 className="h-4 w-4 text-primary" />
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
                 </div>
-                <div className="flex flex-col gap-3 sm:flex-row">
+                <div className="mt-8 space-y-4">
+                  {[
+                    'Đăng ký và xác minh nhanh',
+                    'Không mất phí đăng bài',
+                    'Dễ hẹn gặp tại trường và ký túc xá',
+                  ].map((item) => (
+                    <div key={item} className="flex items-center gap-3 text-sm text-zinc-200">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-300" />
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                   <Link href="/auth?mode=register">
-                    <Button size="lg" className="gap-2">
+                    <Button size="lg" className="w-full rounded-full bg-white text-zinc-950 hover:bg-zinc-100 sm:w-auto">
                       Đăng ký ngay
-                      <ArrowRight className="h-4 w-4" />
                     </Button>
                   </Link>
                   <Link href="/marketplace">
-                    <Button size="lg" variant="outline">
-                      Xem chợ
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="w-full rounded-full border-white/20 bg-transparent text-white hover:bg-white/10 hover:text-white sm:w-auto"
+                    >
+                      Xem marketplace
                     </Button>
                   </Link>
                 </div>
+                <div className="mt-8 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="flex size-11 items-center justify-center rounded-full bg-white/10">
+                    <Users className="h-5 w-5 text-emerald-300" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Cộng đồng nhỏ, tốc độ nhanh</p>
+                    <p className="text-xs text-zinc-300">Phù hợp với giao dịch cần gặp người thật thay vì lang mang trên chợ rộng.</p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
+          </div>
+        </section>
+
+        <section className="pb-6">
+          <div className="container mx-auto px-4">
+            <div className="rounded-[2rem] border border-border/60 bg-white/70 p-6 shadow-sm backdrop-blur md:p-8">
+              <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-sm font-medium uppercase tracking-[0.18em] text-primary">Chợ Sinh Viên</p>
+                  <h3 className="mt-2 text-2xl font-semibold tracking-tight">
+                    Giữ cho mua bán trong trường gọn, nhanh và dễ tin hơn.
+                  </h3>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                  <GraduationCap className="h-4 w-4 text-primary" />
+                  Tập trung vào trải nghiệm frontend và luồng giao dịch thực tế của sinh viên.
+                </div>
+              </div>
+            </div>
           </div>
         </section>
       </main>

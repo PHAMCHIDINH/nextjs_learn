@@ -99,25 +99,30 @@ export interface DashboardSummary {
   totalViews: number
 }
 
+export interface UploadedImage {
+  url: string
+  publicId: string
+}
+
 export const categoryLabels: Record<Category, string> = {
   textbook: 'Giáo trình',
   electronics: 'Điện tử',
   dorm: 'Đồ phòng trọ',
   study: 'Dụng cụ học tập',
-  other: 'Khác'
+  other: 'Khác',
 }
 
 export const conditionLabels: Record<Condition, string> = {
   new: 'Mới 100%',
   'like-new': 'Như mới',
   good: 'Tốt',
-  fair: 'Khá'
+  fair: 'Khá',
 }
 
 export const statusLabels: Record<ProductStatus, string> = {
   selling: 'Đang bán',
   reserved: 'Đã có người cọc',
-  sold: 'Đã bán'
+  sold: 'Đã bán',
 }
 
 export const departmentLabels: Record<Department, string> = {
@@ -127,5 +132,5 @@ export const departmentLabels: Record<Department, string> = {
   ngoaingu: 'Ngôn ngữ Anh',
   luat: 'Luật',
   quanly: 'Quản lý',
-  kythuat: 'Kỹ thuật'
+  kythuat: 'Kỹ thuật',
 }

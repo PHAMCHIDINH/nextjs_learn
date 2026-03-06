@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { use, useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
@@ -6,35 +6,41 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
-  Heart,
-  Share2,
-  MessageSquare,
   BadgeCheck,
-  MapPin,
-  Clock,
-  Eye,
   ChevronLeft,
   ChevronRight,
+  Clock,
+  Eye,
   Flag,
-  ShoppingBag,
+  Heart,
   Loader2,
+  MapPin,
+  MessageSquare,
+  Share2,
+  ShoppingBag,
 } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import { toast } from 'sonner'
-import { Header } from '@/components/header'
 import { Footer } from '@/components/footer'
+import { Header } from '@/components/header'
 import { ProductCard } from '@/components/product-card'
-import { Button } from '@/shared/ui/button'
-import { Badge } from '@/shared/ui/badge'
+import { conversationsApi, listingsApi, reportsApi } from '@/lib/api'
+import { useAuth } from '@/providers/auth-provider'
+import type { Product } from '@/lib/types'
+import { categoryLabels, conditionLabels, departmentLabels, statusLabels } from '@/lib/types'
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar'
+import { Badge } from '@/shared/ui/badge'
+import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Separator } from '@/shared/ui/separator'
 import { cn } from '@/lib/utils'
-import { categoryLabels, conditionLabels, departmentLabels, statusLabels } from '@/lib/types'
-import type { Product } from '@/lib/types'
-import { conversationsApi, listingsApi, reportsApi } from '@/lib/api'
-import { useAuth } from '@/providers/auth-provider'
+
+const statusColors = {
+  selling: 'bg-emerald-500/12 text-emerald-700 border-emerald-200',
+  reserved: 'bg-amber-500/12 text-amber-700 border-amber-200',
+  sold: 'bg-zinc-500/12 text-zinc-600 border-zinc-200',
+}
 
 export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -68,7 +74,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       }
     }
 
-    run()
+    void run()
   }, [id])
 
   const formatPrice = (price: number) =>
@@ -83,28 +89,28 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     [product],
   )
 
-  const statusColors = {
-    selling: 'bg-green-500/10 text-green-600 border-green-200',
-    reserved: 'bg-yellow-500/10 text-yellow-600 border-yellow-200',
-    sold: 'bg-gray-500/10 text-gray-500 border-gray-200',
-  }
-
   const handleShare = async () => {
-    if (!product) return
+    if (!product) {
+      return
+    }
+
     try {
       await navigator.share({
         title: product.title,
-        text: `Xem san pham: ${product.title} - ${formatPrice(product.price)}`,
+        text: `Xem sản phẩm: ${product.title} - ${formatPrice(product.price)}`,
         url: window.location.href,
       })
     } catch {
       await navigator.clipboard.writeText(window.location.href)
-      toast.success('Da sao chep link san pham')
+      toast.success('Đã sao chép liên kết sản phẩm')
     }
   }
 
   const handleSave = async () => {
-    if (!product) return
+    if (!product) {
+      return
+    }
+
     if (!user) {
       router.push('/auth?mode=login')
       return
@@ -115,21 +121,24 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       if (product.isSaved) {
         await listingsApi.unsave(product.id)
         setProduct({ ...product, isSaved: false })
-        toast.success('Da bo luu san pham')
+        toast.success('Đã bỏ lưu sản phẩm')
       } else {
         await listingsApi.save(product.id)
         setProduct({ ...product, isSaved: true })
-        toast.success('Da luu san pham')
+        toast.success('Đã lưu sản phẩm')
       }
     } catch {
-      toast.error('Khong cap nhat duoc trang thai luu')
+      toast.error('Không cập nhật được trạng thái lưu')
     } finally {
       setActionLoading(false)
     }
   }
 
   const handleContact = async () => {
-    if (!product) return
+    if (!product) {
+      return
+    }
+
     if (!user) {
       router.push('/auth?mode=login')
       return
@@ -143,14 +152,17 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       })
       router.push(`/chat?conversation=${conversation.id}`)
     } catch {
-      toast.error('Khong tao duoc hoi thoai')
+      toast.error('Không tạo được hội thoại')
     } finally {
       setActionLoading(false)
     }
   }
 
   const handleReport = async () => {
-    if (!product) return
+    if (!product) {
+      return
+    }
+
     if (!user) {
       router.push('/auth?mode=login')
       return
@@ -160,11 +172,11 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     try {
       await reportsApi.create({
         listingId: product.id,
-        reason: 'Nguoi dung bao cao bai dang nay',
+        reason: 'Người dùng báo cáo bài đăng này',
       })
-      toast.success('Da gui bao cao')
+      toast.success('Đã gửi báo cáo')
     } catch {
-      toast.error('Khong gui duoc bao cao')
+      toast.error('Không gửi được báo cáo')
     } finally {
       setActionLoading(false)
     }
@@ -186,12 +198,12 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     return (
       <div className="flex min-h-screen flex-col">
         <Header />
-        <main className="flex flex-1 flex-col items-center justify-center">
+        <main className="flex flex-1 flex-col items-center justify-center px-4 text-center">
           <ShoppingBag className="mb-4 h-16 w-16 text-muted-foreground" />
-          <h1 className="mb-2 text-2xl font-bold">San pham khong ton tai</h1>
-          <p className="mb-6 text-muted-foreground">San pham nay co the da bi xoa hoac khong ton tai.</p>
+          <h1 className="mb-2 text-2xl font-bold">Sản phẩm không tồn tại</h1>
+          <p className="mb-6 text-muted-foreground">Sản phẩm này có thể đã bị xóa hoặc hiện không còn hiển thị.</p>
           <Link href="/marketplace">
-            <Button>Quay lai cho</Button>
+            <Button>Quay lại chợ</Button>
           </Link>
         </main>
         <Footer />
@@ -200,86 +212,88 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="min-h-screen bg-[linear-gradient(180deg,_rgba(250,250,249,1)_0%,_rgba(244,244,245,1)_100%)]">
       <Header />
 
-      <main className="flex-1 bg-muted/30 py-6">
+      <main className="py-8">
         <div className="container mx-auto px-4">
-          <div className="mb-6 flex items-center gap-2 text-sm">
-            <Link href="/marketplace" className="flex items-center gap-1 text-muted-foreground hover:text-foreground">
+          <div className="mb-6 flex items-center gap-2 text-sm text-muted-foreground">
+            <Link href="/marketplace" className="inline-flex items-center gap-1 hover:text-foreground">
               <ArrowLeft className="h-4 w-4" />
-              Quay lai cho
+              Quay lại chợ
             </Link>
-            <span className="text-muted-foreground">/</span>
-            <span className="text-muted-foreground">{categoryLabels[product.category]}</span>
-            <span className="text-muted-foreground">/</span>
-            <span className="truncate">{product.title}</span>
+            <span>/</span>
+            <span>{categoryLabels[product.category]}</span>
+            <span>/</span>
+            <span className="truncate text-foreground">{product.title}</span>
           </div>
 
-          <div className="grid gap-8 lg:grid-cols-2">
+          <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
             <div className="space-y-4">
-              <div className="relative aspect-square overflow-hidden rounded-xl bg-muted">
-                <Image
-                  src={imageError[currentImageIndex] ? '/placeholder.svg' : product.images[currentImageIndex]}
-                  alt={product.title}
-                  fill
-                  className="object-cover"
-                  priority
-                  onError={() => setImageError((prev) => ({ ...prev, [currentImageIndex]: true }))}
-                />
+              <div className="relative overflow-hidden rounded-[2rem] border border-border/70 bg-white shadow-sm">
+                <div className="relative aspect-square">
+                  <Image
+                    src={imageError[currentImageIndex] ? '/placeholder.svg' : product.images[currentImageIndex]}
+                    alt={product.title}
+                    fill
+                    className="object-cover"
+                    priority
+                    onError={() => setImageError((prev) => ({ ...prev, [currentImageIndex]: true }))}
+                  />
+                </div>
 
-                {product.status !== 'selling' && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                    <Badge className={cn('px-4 py-2 text-lg', statusColors[product.status])}>
-                      {statusLabels[product.status]}
-                    </Badge>
-                  </div>
-                )}
+                <div className="absolute inset-x-0 top-0 flex items-start justify-between p-4">
+                  <Badge className={cn('border bg-white/90 text-xs backdrop-blur', statusColors[product.status])}>
+                    {statusLabels[product.status]}
+                  </Badge>
+                  {discount > 0 && product.status === 'selling' ? (
+                    <Badge className="bg-destructive text-destructive-foreground">-{discount}%</Badge>
+                  ) : null}
+                </div>
 
-                {product.images.length > 1 && (
+                {product.images.length > 1 ? (
                   <>
                     <Button
                       variant="secondary"
                       size="icon"
-                      className="absolute left-2 top-1/2 h-10 w-10 -translate-y-1/2 rounded-full opacity-80 hover:opacity-100"
-                      onClick={() => setCurrentImageIndex((prev) => (prev === 0 ? product.images.length - 1 : prev - 1))}
+                      className="absolute left-4 top-1/2 h-11 w-11 -translate-y-1/2 rounded-full"
+                      onClick={() =>
+                        setCurrentImageIndex((prev) => (prev === 0 ? product.images.length - 1 : prev - 1))
+                      }
                     >
-                      <ChevronLeft className="h-6 w-6" />
+                      <ChevronLeft className="h-5 w-5" />
                     </Button>
                     <Button
                       variant="secondary"
                       size="icon"
-                      className="absolute right-2 top-1/2 h-10 w-10 -translate-y-1/2 rounded-full opacity-80 hover:opacity-100"
-                      onClick={() => setCurrentImageIndex((prev) => (prev === product.images.length - 1 ? 0 : prev + 1))}
+                      className="absolute right-4 top-1/2 h-11 w-11 -translate-y-1/2 rounded-full"
+                      onClick={() =>
+                        setCurrentImageIndex((prev) => (prev === product.images.length - 1 ? 0 : prev + 1))
+                      }
                     >
-                      <ChevronRight className="h-6 w-6" />
+                      <ChevronRight className="h-5 w-5" />
                     </Button>
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/70 px-3 py-1 text-xs text-white">
+                      {currentImageIndex + 1} / {product.images.length}
+                    </div>
                   </>
-                )}
-
-                {product.images.length > 1 && (
-                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-sm text-white">
-                    {currentImageIndex + 1} / {product.images.length}
-                  </div>
-                )}
+                ) : null}
               </div>
 
-              {product.images.length > 1 && (
-                <div className="flex gap-2 overflow-x-auto pb-2">
+              {product.images.length > 1 ? (
+                <div className="flex gap-3 overflow-x-auto pb-2">
                   {product.images.map((image, index) => (
                     <button
                       key={index}
                       onClick={() => setCurrentImageIndex(index)}
                       className={cn(
-                        'relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg border-2 transition-all',
-                        currentImageIndex === index
-                          ? 'border-primary'
-                          : 'border-transparent hover:border-muted-foreground/50',
+                        'relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-2xl border-2 transition-all',
+                        currentImageIndex === index ? 'border-primary' : 'border-transparent hover:border-muted-foreground/40',
                       )}
                     >
                       <Image
                         src={imageError[index] ? '/placeholder.svg' : image}
-                        alt={`${product.title} - ${index + 1}`}
+                        alt={`${product.title} - ảnh ${index + 1}`}
                         fill
                         className="object-cover"
                         onError={() => setImageError((prev) => ({ ...prev, [index]: true }))}
@@ -287,86 +301,80 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                     </button>
                   ))}
                 </div>
-              )}
+              ) : null}
             </div>
 
             <div className="space-y-6">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge className={cn('border', statusColors[product.status])}>{statusLabels[product.status]}</Badge>
-                <Badge variant="secondary">{categoryLabels[product.category]}</Badge>
-                <Badge variant="outline">{conditionLabels[product.condition]}</Badge>
-              </div>
+              <Card className="border-border/70 bg-white/92 shadow-sm">
+                <CardContent className="space-y-6 p-6">
+                  <div className="flex flex-wrap gap-2">
+                    <Badge className={cn('border bg-white text-xs', statusColors[product.status])}>{statusLabels[product.status]}</Badge>
+                    <Badge variant="secondary">{categoryLabels[product.category]}</Badge>
+                    <Badge variant="outline">{conditionLabels[product.condition]}</Badge>
+                  </div>
 
-              <h1 className="text-2xl font-bold leading-tight md:text-3xl">{product.title}</h1>
+                  <div>
+                    <h1 className="text-3xl font-semibold leading-tight tracking-tight md:text-4xl">{product.title}</h1>
+                    <div className="mt-4 flex items-baseline gap-3">
+                      <span className="text-4xl font-semibold text-primary">{formatPrice(product.price)}</span>
+                      {product.originalPrice ? (
+                        <span className="text-lg text-muted-foreground line-through">{formatPrice(product.originalPrice)}</span>
+                      ) : null}
+                    </div>
+                  </div>
 
-              <div className="flex items-baseline gap-3">
-                <span className="text-3xl font-bold text-primary">{formatPrice(product.price)}</span>
-                {product.originalPrice && (
-                  <>
-                    <span className="text-xl text-muted-foreground line-through">{formatPrice(product.originalPrice)}</span>
-                    <Badge variant="destructive">-{discount}%</Badge>
-                  </>
-                )}
-              </div>
+                  <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                    <span className="inline-flex items-center gap-1">
+                      <Eye className="h-4 w-4" />
+                      {product.views} lượt xem
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <Heart className="h-4 w-4" />
+                      {product.savedBy.length} lượt lưu
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <Clock className="h-4 w-4" />
+                      {formatDistanceToNow(product.createdAt, { addSuffix: true, locale: vi })}
+                    </span>
+                  </div>
 
-              <div className="flex items-center gap-6 text-sm text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <Eye className="h-4 w-4" />
-                  {product.views} luot xem
-                </span>
-                <span className="flex items-center gap-1">
-                  <Heart className="h-4 w-4" />
-                  {product.savedBy.length} luot luu
-                </span>
-                <span className="flex items-center gap-1">
-                  <Clock className="h-4 w-4" />
-                  {formatDistanceToNow(product.createdAt, { addSuffix: true, locale: vi })}
-                </span>
-              </div>
+                  <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
+                    <Button size="lg" className="gap-2 rounded-full" onClick={handleContact} disabled={product.status === 'sold' || actionLoading}>
+                      <MessageSquare className="h-5 w-5" />
+                      Nhắn tin cho người bán
+                    </Button>
+                    <Button size="lg" variant={product.isSaved ? 'default' : 'outline'} className="rounded-full" onClick={handleSave} disabled={actionLoading}>
+                      <Heart className={cn('h-5 w-5', product.isSaved && 'fill-current')} />
+                    </Button>
+                    <Button size="lg" variant="outline" className="rounded-full" onClick={handleShare}>
+                      <Share2 className="h-5 w-5" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
 
-              <div className="flex flex-wrap gap-3">
-                <Button size="lg" className="flex-1 gap-2" onClick={handleContact} disabled={product.status === 'sold' || actionLoading}>
-                  <MessageSquare className="h-5 w-5" />
-                  Nhan tin cho nguoi ban
-                </Button>
-                <Button
-                  size="lg"
-                  variant={product.isSaved ? 'default' : 'outline'}
-                  onClick={handleSave}
-                  className="gap-2"
-                  disabled={actionLoading}
-                >
-                  <Heart className={cn('h-5 w-5', product.isSaved && 'fill-current')} />
-                </Button>
-                <Button size="lg" variant="outline" onClick={handleShare}>
-                  <Share2 className="h-5 w-5" />
-                </Button>
-              </div>
-
-              <Separator />
-
-              <Card>
+              <Card className="border-border/70 bg-white/92 shadow-sm">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Thong tin nguoi ban</CardTitle>
+                  <CardTitle className="text-base">Thông tin người bán</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                      <Avatar className="h-12 w-12">
+                      <Avatar className="h-14 w-14 ring-2 ring-primary/10">
                         <AvatarImage src={product.seller.avatar} alt={product.seller.name} />
                         <AvatarFallback>{product.seller.name.charAt(0)}</AvatarFallback>
                       </Avatar>
                       <div>
                         <div className="flex items-center gap-1.5 font-medium">
                           {product.seller.name}
-                          {product.seller.verified && <BadgeCheck className="h-4 w-4 text-primary" />}
+                          {product.seller.verified ? <BadgeCheck className="h-4 w-4 text-primary" /> : null}
                         </div>
                         <div className="text-sm text-muted-foreground">MSSV: {product.seller.studentId}</div>
                       </div>
                     </div>
                     <div className="text-right text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <MapPin className="h-3 w-3" />
+                      <div className="inline-flex items-center gap-1">
+                        <MapPin className="h-3.5 w-3.5" />
                         {departmentLabels[product.seller.department]}
                       </div>
                       <div>Tham gia {format(product.seller.createdAt, 'MM/yyyy')}</div>
@@ -375,40 +383,42 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="border-border/70 bg-white/92 shadow-sm">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Mo ta san pham</CardTitle>
+                  <CardTitle className="text-base">Mô tả sản phẩm</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="whitespace-pre-line leading-relaxed text-muted-foreground">{product.description}</p>
+                  <p className="whitespace-pre-line text-sm leading-8 text-muted-foreground">{product.description}</p>
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="border-border/70 bg-white/92 shadow-sm">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Chi tiet</CardTitle>
+                  <CardTitle className="text-base">Chi tiết</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <dl className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <dt className="text-muted-foreground">Danh muc</dt>
-                      <dd className="font-medium">{categoryLabels[product.category]}</dd>
+                  <dl className="grid gap-4 sm:grid-cols-2">
+                    <div className="rounded-2xl border border-border/70 bg-muted/30 p-4">
+                      <dt className="text-sm text-muted-foreground">Danh mục</dt>
+                      <dd className="mt-1 font-medium">{categoryLabels[product.category]}</dd>
                     </div>
-                    <div>
-                      <dt className="text-muted-foreground">Tinh trang</dt>
-                      <dd className="font-medium">{conditionLabels[product.condition]}</dd>
+                    <div className="rounded-2xl border border-border/70 bg-muted/30 p-4">
+                      <dt className="text-sm text-muted-foreground">Tình trạng</dt>
+                      <dd className="mt-1 font-medium">{conditionLabels[product.condition]}</dd>
                     </div>
-                    <div>
-                      <dt className="text-muted-foreground">Nganh hoc</dt>
-                      <dd className="font-medium">{departmentLabels[product.department]}</dd>
+                    <div className="rounded-2xl border border-border/70 bg-muted/30 p-4">
+                      <dt className="text-sm text-muted-foreground">Ngành học</dt>
+                      <dd className="mt-1 font-medium">{departmentLabels[product.department]}</dd>
                     </div>
-                    <div>
-                      <dt className="text-muted-foreground">Dang ngay</dt>
-                      <dd className="font-medium">{format(product.createdAt, 'dd/MM/yyyy', { locale: vi })}</dd>
+                    <div className="rounded-2xl border border-border/70 bg-muted/30 p-4">
+                      <dt className="text-sm text-muted-foreground">Đăng ngày</dt>
+                      <dd className="mt-1 font-medium">{format(product.createdAt, 'dd/MM/yyyy', { locale: vi })}</dd>
                     </div>
                   </dl>
                 </CardContent>
               </Card>
+
+              <Separator />
 
               <Button
                 variant="ghost"
@@ -417,21 +427,26 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 disabled={actionLoading}
               >
                 <Flag className="h-4 w-4" />
-                Bao cao bai dang nay
+                Báo cáo bài đăng này
               </Button>
             </div>
           </div>
 
-          {relatedProducts.length > 0 && (
+          {relatedProducts.length > 0 ? (
             <section className="mt-16">
-              <h2 className="mb-6 text-xl font-bold">San pham tuong tu</h2>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="mb-6 flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl font-semibold tracking-tight">Sản phẩm tương tự</h2>
+                  <p className="text-sm text-muted-foreground">Một vài gợi ý cùng danh mục để bạn so sánh nhanh hơn.</p>
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {relatedProducts.map((item) => (
                   <ProductCard key={item.id} product={item} />
                 ))}
               </div>
             </section>
-          )}
+          ) : null}
         </div>
       </main>
 

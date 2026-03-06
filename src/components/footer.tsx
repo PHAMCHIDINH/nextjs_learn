@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ShoppingBag, Facebook, Mail, Phone } from 'lucide-react'
+import { Facebook, Mail, ShoppingBag } from 'lucide-react'
 
 const footerLinks = {
   platform: [
@@ -27,7 +27,6 @@ export function Footer() {
     <footer className="border-t border-border bg-muted/30">
       <div className="container mx-auto px-4 py-12">
         <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
-          {/* Brand */}
           <div className="space-y-4">
             <Link href="/" className="flex items-center gap-2">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
@@ -36,7 +35,7 @@ export function Footer() {
               <span className="text-lg font-bold">Chợ Sinh Viên</span>
             </Link>
             <p className="text-sm text-muted-foreground">
-              Nền tảng mua bán nội bộ dành riêng cho sinh viên. An toàn, tiện lợi và tiết kiệm.
+              Nền tảng mua bán nội bộ dành riêng cho sinh viên. An toàn, tiện lợi và tiết kiệm hơn cho từng học kỳ.
             </p>
             <div className="flex items-center gap-4">
               <a href="#" className="text-muted-foreground transition-colors hover:text-primary">
@@ -45,22 +44,15 @@ export function Footer() {
               <a href="mailto:support@chosinhvien.vn" className="text-muted-foreground transition-colors hover:text-primary">
                 <Mail className="h-5 w-5" />
               </a>
-              <a href="tel:1900xxxx" className="text-muted-foreground transition-colors hover:text-primary">
-                <Phone className="h-5 w-5" />
-              </a>
             </div>
           </div>
 
-          {/* Platform */}
           <div>
             <h3 className="mb-4 text-sm font-semibold">Nền tảng</h3>
             <ul className="space-y-3">
               {footerLinks.platform.map((link) => (
                 <li key={link.name}>
-                  <Link
-                    href={link.href}
-                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                  >
+                  <Link href={link.href} className="text-sm text-muted-foreground transition-colors hover:text-foreground">
                     {link.name}
                   </Link>
                 </li>
@@ -68,16 +60,12 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Categories */}
           <div>
             <h3 className="mb-4 text-sm font-semibold">Danh mục</h3>
             <ul className="space-y-3">
               {footerLinks.categories.map((link) => (
                 <li key={link.name}>
-                  <Link
-                    href={link.href}
-                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                  >
+                  <Link href={link.href} className="text-sm text-muted-foreground transition-colors hover:text-foreground">
                     {link.name}
                   </Link>
                 </li>
@@ -85,16 +73,12 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Support */}
           <div>
             <h3 className="mb-4 text-sm font-semibold">Hỗ trợ</h3>
             <ul className="space-y-3">
               {footerLinks.support.map((link) => (
                 <li key={link.name}>
-                  <Link
-                    href={link.href}
-                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                  >
+                  <Link href={link.href} className="text-sm text-muted-foreground transition-colors hover:text-foreground">
                     {link.name}
                   </Link>
                 </li>
@@ -104,12 +88,8 @@ export function Footer() {
         </div>
 
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border pt-8 md:flex-row">
-          <p className="text-sm text-muted-foreground">
-            2024 Chợ Sinh Viên. Đồ án tốt nghiệp - DEMO.
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Designed with care for Vietnamese students
-          </p>
+          <p className="text-sm text-muted-foreground">2024 Chợ Sinh Viên. Đồ án tốt nghiệp - DEMO.</p>
+          <p className="text-sm text-muted-foreground">Thiết kế với sự quan tâm đến trải nghiệm của sinh viên Việt Nam.</p>
         </div>
       </div>
     </footer>

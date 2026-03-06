@@ -1,4 +1,4 @@
-This is a Next.js frontend connected to the backend API through a local proxy route.
+This is a Next.js frontend connected directly to the backend API.
 
 ## Getting Started
 
@@ -23,18 +23,18 @@ Create `.env.local` from `.env.example`:
 
 ```bash
 NEXT_PUBLIC_API_BASE_URL=http://localhost:3000
-BACKEND_API_URL=http://localhost:3000
 ```
 
 The frontend uses:
-- `/api/users` (Next route handler proxy)
-- backend target from `BACKEND_API_URL` (or fallback `NEXT_PUBLIC_API_BASE_URL`)
+- direct browser/API calls to `NEXT_PUBLIC_API_BASE_URL`
+- bearer token + cookie credentials for authenticated endpoints
 
 ## Test Flow
 
 1) Open `http://localhost:3001`.
-2) Create a user from the UI form.
-3) Confirm list updates from backend data.
+2) Register/login from `/auth`.
+3) Upload images and create listing from `/post/new`.
+4) Verify listing appears in `/dashboard`.
 
 ## Scripts
 

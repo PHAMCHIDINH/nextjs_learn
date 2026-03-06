@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useEffect, useMemo, useState, Suspense } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -20,12 +20,13 @@ import {
   Loader2,
   Trash2,
   TrendingUp,
+  Upload,
+  X,
 } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import { toast } from 'sonner'
-import { Header } from '@/components/header'
-import { Footer } from '@/components/footer'
+import { AppShell } from '@/components/app-shell'
 import { ProductCard } from '@/components/product-card'
 import { Button } from '@/shared/ui/button'
 import { Badge } from '@/shared/ui/badge'
@@ -33,22 +34,43 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/ui/dropdown-menu'
+import { Input } from '@/shared/ui/input'
+import { Label } from '@/shared/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/shared/ui/sheet'
 import { cn } from '@/lib/utils'
-import { conversationsApi, dashboardApi, listingsApi, usersApi } from '@/lib/api'
-import type { Conversation, DashboardSummary, Product } from '@/lib/types'
+import { conversationsApi, dashboardApi, listingsApi, uploadsApi, usersApi } from '@/lib/api'
+import type { Conversation, DashboardSummary, Department, Product, ProductStatus } from '@/lib/types'
 import { categoryLabels, departmentLabels, statusLabels } from '@/lib/types'
 import { useAuth } from '@/providers/auth-provider'
+
+const AVATAR_MAX_FILE_SIZE = 5 * 1024 * 1024
+const AVATAR_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+
+const revokeBlobUrl = (value?: string | null) => {
+  if (value?.startsWith('blob:')) {
+    URL.revokeObjectURL(value)
+  }
+}
 
 function DashboardContent() {
   const searchParams = useSearchParams()
   const defaultTab = searchParams.get('tab') || 'overview'
-  const { user, loading: authLoading } = useAuth()
+  const { user, loading: authLoading, refreshMe } = useAuth()
 
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
   const [myProducts, setMyProducts] = useState<Product[]>([])
   const [savedProducts, setSavedProducts] = useState<Product[]>([])
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [loading, setLoading] = useState(true)
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false)
+  const [isSavingProfile, setIsSavingProfile] = useState(false)
+  const [profileName, setProfileName] = useState('')
+  const [profileDepartment, setProfileDepartment] = useState<Department>('cntt')
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [avatarRemoved, setAvatarRemoved] = useState(false)
+  const avatarInputRef = useRef<HTMLInputElement | null>(null)
 
   const loadDashboard = async () => {
     if (!user) {
@@ -69,7 +91,7 @@ function DashboardContent() {
       setSavedProducts(savedData.data)
       setConversations(convData)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Khong tai du lieu dashboard duoc')
+      toast.error(error instanceof Error ? error.message : 'Không tải dữ liệu dashboard được')
     } finally {
       setLoading(false)
     }
@@ -80,18 +102,155 @@ function DashboardContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id])
 
+  useEffect(
+    () => () => {
+      revokeBlobUrl(avatarPreview)
+    },
+    [avatarPreview],
+  )
+
+  const syncProfileDraftFromUser = () => {
+    if (!user) {
+      return
+    }
+
+    revokeBlobUrl(avatarPreview)
+    setProfileName(user.name)
+    setProfileDepartment(user.department)
+    setAvatarPreview(user.avatar ?? null)
+    setAvatarFile(null)
+    setAvatarRemoved(false)
+    if (avatarInputRef.current) {
+      avatarInputRef.current.value = ''
+    }
+  }
+
+  const openEditProfile = () => {
+    syncProfileDraftFromUser()
+    setIsEditProfileOpen(true)
+  }
+
+  const handleEditProfileOpenChange = (open: boolean) => {
+    setIsEditProfileOpen(open)
+    if (!open) {
+      syncProfileDraftFromUser()
+    }
+  }
+
+  const handleAvatarFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) {
+      return
+    }
+
+    if (!AVATAR_MIME_TYPES.includes(file.type)) {
+      toast.error('Avatar chỉ hỗ trợ JPG, PNG, WEBP')
+      event.target.value = ''
+      return
+    }
+
+    if (file.size > AVATAR_MAX_FILE_SIZE) {
+      toast.error('Avatar tối đa 5MB')
+      event.target.value = ''
+      return
+    }
+
+    const previewUrl = URL.createObjectURL(file)
+    revokeBlobUrl(avatarPreview)
+    setAvatarPreview(previewUrl)
+    setAvatarFile(file)
+    setAvatarRemoved(false)
+  }
+
+  const removeAvatar = () => {
+    revokeBlobUrl(avatarPreview)
+    setAvatarPreview(null)
+    setAvatarFile(null)
+    setAvatarRemoved(true)
+    if (avatarInputRef.current) {
+      avatarInputRef.current.value = ''
+    }
+  }
+
+  const hasProfileChanges =
+    !!user &&
+    (profileName.trim() !== user.name ||
+      profileDepartment !== user.department ||
+      avatarFile !== null ||
+      (avatarRemoved && Boolean(user.avatar)))
+
+  const handleSaveProfile = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!user) {
+      return
+    }
+
+    const trimmedName = profileName.trim()
+    if (trimmedName.length < 2) {
+      toast.error('Tên cần ít nhất 2 ký tự')
+      return
+    }
+
+    const payload: {
+      name?: string
+      department?: Department
+      avatar?: { url: string; publicId?: string } | null
+    } = {}
+
+    if (trimmedName !== user.name) {
+      payload.name = trimmedName
+    }
+
+    if (profileDepartment !== user.department) {
+      payload.department = profileDepartment
+    }
+
+    setIsSavingProfile(true)
+    try {
+      if (avatarRemoved) {
+        payload.avatar = null
+      } else if (avatarFile) {
+        const uploaded = await uploadsApi.uploadAvatar(avatarFile)
+        payload.avatar = {
+          url: uploaded.data.url,
+          publicId: uploaded.data.publicId,
+        }
+      }
+
+      if (!('name' in payload) && !('department' in payload) && !('avatar' in payload)) {
+        setIsEditProfileOpen(false)
+        return
+      }
+
+      await usersApi.updateMe(payload)
+      await refreshMe()
+      revokeBlobUrl(avatarPreview)
+      if (avatarInputRef.current) {
+        avatarInputRef.current.value = ''
+      }
+      setAvatarFile(null)
+      setAvatarRemoved(false)
+      setIsEditProfileOpen(false)
+      toast.success('Đã cập nhật hồ sơ')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Không cập nhật hồ sơ được')
+    } finally {
+      setIsSavingProfile(false)
+    }
+  }
+
   const recentConversations = useMemo(() => conversations.slice(0, 3), [conversations])
 
   const stats = [
-    { label: 'Bai dang', value: summary?.myPosts ?? myProducts.length, icon: Package, color: 'text-blue-600' },
+    { label: 'Bài đăng', value: summary?.myPosts ?? myProducts.length, icon: Package, color: 'text-blue-600' },
     {
-      label: 'Dang ban',
+      label: 'Đang bán',
       value: summary?.selling ?? myProducts.filter((p) => p.status === 'selling').length,
       icon: TrendingUp,
       color: 'text-green-600',
     },
-    { label: 'Da luu', value: summary?.saved ?? savedProducts.length, icon: Heart, color: 'text-red-600' },
-    { label: 'Tin nhan', value: summary?.conversations ?? conversations.length, icon: MessageSquare, color: 'text-purple-600' },
+    { label: 'Đã lưu', value: summary?.saved ?? savedProducts.length, icon: Heart, color: 'text-red-600' },
+    { label: 'Tin nhắn', value: summary?.conversations ?? conversations.length, icon: MessageSquare, color: 'text-purple-600' },
   ]
 
   const totalViews = summary?.totalViews ?? myProducts.reduce((acc, p) => acc + p.views, 0)
@@ -107,9 +266,26 @@ function DashboardContent() {
     try {
       await listingsApi.remove(productId)
       setMyProducts((prev) => prev.filter((item) => item.id !== productId))
-      toast.success('Da xoa bai dang thanh cong')
+      toast.success('Đã xóa bài đăng thành công')
     } catch {
-      toast.error('Khong xoa bai dang duoc')
+      toast.error('Không xóa bài đăng được')
+    }
+  }
+
+  const handleUpdateStatus = async (productId: string, nextStatus: ProductStatus) => {
+    const previous = myProducts.find((item) => item.id === productId)
+    if (!previous || previous.status === nextStatus) {
+      return
+    }
+
+    setMyProducts((prev) => prev.map((item) => (item.id === productId ? { ...item, status: nextStatus } : item)))
+    try {
+      const updated = await listingsApi.updateStatus(productId, nextStatus)
+      setMyProducts((prev) => prev.map((item) => (item.id === productId ? updated : item)))
+      toast.success('Da cap nhat trang thai bai dang')
+    } catch (error) {
+      setMyProducts((prev) => prev.map((item) => (item.id === productId ? previous : item)))
+      toast.error(error instanceof Error ? error.message : 'Khong cap nhat trang thai duoc')
     }
   }
 
@@ -131,48 +307,42 @@ function DashboardContent() {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Link href="/auth?mode=login">
-          <Button>Dang nhap de xem dashboard</Button>
+          <Button>Đăng nhập để xem dashboard</Button>
         </Link>
       </div>
     )
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <Header />
-
-      <main className="flex-1 bg-muted/30 py-6">
-        <div className="container mx-auto px-4">
-          <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h1 className="text-2xl font-bold">Dashboard</h1>
-              <p className="text-muted-foreground">Quan ly tai khoan va bai dang cua ban</p>
-            </div>
-            <Link href="/post/new">
-              <Button className="gap-2">
-                <Plus className="h-4 w-4" />
-                Dang tin moi
-              </Button>
-            </Link>
-          </div>
-
-          <Tabs defaultValue={defaultTab} className="space-y-6">
+    <AppShell
+      title="Dashboard"
+      description="Quản lý tài khoản và bài đăng của bạn"
+      actions={
+        <Link href="/post/new">
+          <Button className="gap-2">
+            <Plus className="h-4 w-4" />
+            Đăng tin mới
+          </Button>
+        </Link>
+      }
+    >
+      <Tabs defaultValue={defaultTab} className="space-y-6">
             <TabsList className="grid w-full grid-cols-4 md:w-auto md:grid-cols-none">
               <TabsTrigger value="overview" className="gap-2">
                 <User className="hidden h-4 w-4 md:block" />
-                Tong quan
+                Tổng quan
               </TabsTrigger>
               <TabsTrigger value="posts" className="gap-2">
                 <Package className="hidden h-4 w-4 md:block" />
-                Bai dang
+                Bài đăng
               </TabsTrigger>
               <TabsTrigger value="saved" className="gap-2">
                 <Heart className="hidden h-4 w-4 md:block" />
-                Da luu
+                Đã lưu
               </TabsTrigger>
               <TabsTrigger value="messages" className="gap-2">
                 <MessageSquare className="hidden h-4 w-4 md:block" />
-                Tin nhan
+                Tin nhắn
               </TabsTrigger>
             </TabsList>
 
@@ -207,9 +377,9 @@ function DashboardContent() {
                         {departmentLabels[user.department]}
                       </Badge>
                     </div>
-                    <Button variant="outline" className="gap-2" disabled>
+                    <Button variant="outline" className="gap-2" onClick={openEditProfile}>
                       <Edit className="h-4 w-4" />
-                      Chinh sua
+                      Chỉnh sửa
                     </Button>
                   </div>
                 </CardContent>
@@ -234,8 +404,8 @@ function DashboardContent() {
               <div className="grid gap-4 md:grid-cols-2">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">Thong ke luot xem</CardTitle>
-                    <CardDescription>Tong luot xem cac bai dang cua ban</CardDescription>
+                    <CardTitle className="text-lg">Thống kê lượt xem</CardTitle>
+                    <CardDescription>Tổng lượt xem các bài đăng của bạn</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-center gap-4">
@@ -244,7 +414,7 @@ function DashboardContent() {
                       </div>
                       <div>
                         <p className="text-3xl font-bold">{totalViews.toLocaleString()}</p>
-                        <p className="text-sm text-muted-foreground">luot xem</p>
+                        <p className="text-sm text-muted-foreground">lượt xem</p>
                       </div>
                     </div>
                   </CardContent>
@@ -252,8 +422,8 @@ function DashboardContent() {
 
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">Tin nhan gan day</CardTitle>
-                    <CardDescription>Cac cuoc tro chuyen moi nhat</CardDescription>
+                    <CardTitle className="text-lg">Tin nhắn gần đây</CardTitle>
+                    <CardDescription>Các cuộc trò chuyện mới nhất</CardDescription>
                   </CardHeader>
                   <CardContent>
                     {recentConversations.length > 0 ? (
@@ -282,7 +452,7 @@ function DashboardContent() {
                         })}
                       </div>
                     ) : (
-                      <p className="text-sm text-muted-foreground">Chua co tin nhan nao</p>
+                      <p className="text-sm text-muted-foreground">Chưa có tin nhắn nào</p>
                     )}
                   </CardContent>
                 </Card>
@@ -292,8 +462,8 @@ function DashboardContent() {
             <TabsContent value="posts" className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Bai dang cua toi</CardTitle>
-                  <CardDescription>Quan ly tat ca bai dang ban hang cua ban</CardDescription>
+                  <CardTitle>Bài đăng của tôi</CardTitle>
+                  <CardDescription>Quản lý tất cả bài đăng bán hàng của bạn</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {myProducts.length > 0 ? (
@@ -336,12 +506,27 @@ function DashboardContent() {
                               <DropdownMenuItem asChild>
                                 <Link href={`/product/${product.id}`}>
                                   <Eye className="mr-2 h-4 w-4" />
-                                  Xem chi tiet
+                                  Xem chi tiết
                                 </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem asChild>
+                                <Link href={`/post/${product.id}/edit`}>
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  Sua bai dang
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => void handleUpdateStatus(product.id, 'selling')}>
+                                Dat trang thai: {statusLabels.selling}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => void handleUpdateStatus(product.id, 'reserved')}>
+                                Dat trang thai: {statusLabels.reserved}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => void handleUpdateStatus(product.id, 'sold')}>
+                                Dat trang thai: {statusLabels.sold}
                               </DropdownMenuItem>
                               <DropdownMenuItem className="text-destructive" onClick={() => handleDeletePost(product.id)}>
                                 <Trash2 className="mr-2 h-4 w-4" />
-                                Xoa bai dang
+                                Xóa bài đăng
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -351,12 +536,12 @@ function DashboardContent() {
                   ) : (
                     <div className="flex flex-col items-center justify-center py-12 text-center">
                       <Package className="mb-4 h-12 w-12 text-muted-foreground" />
-                      <h3 className="mb-2 font-semibold">Chua co bai dang nao</h3>
-                      <p className="mb-4 text-sm text-muted-foreground">Bat dau ban do cua ban bang cach tao bai dang moi</p>
+                      <h3 className="mb-2 font-semibold">Chưa có bài đăng nào</h3>
+                      <p className="mb-4 text-sm text-muted-foreground">Bắt đầu bán đồ của bạn bằng cách tạo bài đăng mới</p>
                       <Link href="/post/new">
                         <Button className="gap-2">
                           <Plus className="h-4 w-4" />
-                          Dang tin moi
+                          Đăng tin mới
                         </Button>
                       </Link>
                     </div>
@@ -368,8 +553,8 @@ function DashboardContent() {
             <TabsContent value="saved" className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>San pham da luu</CardTitle>
-                  <CardDescription>Cac san pham ban da luu de xem sau</CardDescription>
+                  <CardTitle>Sản phẩm đã lưu</CardTitle>
+                  <CardDescription>Các sản phẩm bạn đã lưu để xem sau</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {savedProducts.length > 0 ? (
@@ -381,10 +566,10 @@ function DashboardContent() {
                   ) : (
                     <div className="flex flex-col items-center justify-center py-12 text-center">
                       <Heart className="mb-4 h-12 w-12 text-muted-foreground" />
-                      <h3 className="mb-2 font-semibold">Chua luu san pham nao</h3>
-                      <p className="mb-4 text-sm text-muted-foreground">Luu nhung san pham ban quan tam de xem lai sau</p>
+                      <h3 className="mb-2 font-semibold">Chưa lưu sản phẩm nào</h3>
+                      <p className="mb-4 text-sm text-muted-foreground">Lưu những sản phẩm bạn quan tâm để xem lại sau</p>
                       <Link href="/marketplace">
-                        <Button variant="outline">Kham pha cho</Button>
+                        <Button variant="outline">Khám phá chợ</Button>
                       </Link>
                     </div>
                   )}
@@ -395,8 +580,8 @@ function DashboardContent() {
             <TabsContent value="messages" className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Tin nhan</CardTitle>
-                  <CardDescription>Tat ca cuoc tro chuyen cua ban</CardDescription>
+                  <CardTitle>Tin nhắn</CardTitle>
+                  <CardDescription>Tất cả cuộc trò chuyện của bạn</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {conversations.length > 0 ? (
@@ -427,7 +612,7 @@ function DashboardContent() {
                               </div>
                               {conv.product && <p className="truncate text-xs text-primary">{conv.product.title}</p>}
                               <p className="truncate text-sm text-muted-foreground">
-                                {conv.lastMessage?.senderId === user.id && 'Ban: '}
+                                {conv.lastMessage?.senderId === user.id && 'Bạn: '}
                                 {conv.lastMessage?.content}
                               </p>
                             </div>
@@ -441,19 +626,122 @@ function DashboardContent() {
                   ) : (
                     <div className="flex flex-col items-center justify-center py-12 text-center">
                       <MessageSquare className="mb-4 h-12 w-12 text-muted-foreground" />
-                      <h3 className="mb-2 font-semibold">Chua co tin nhan nao</h3>
-                      <p className="text-sm text-muted-foreground">Bat dau tro chuyen voi nguoi ban tu trang san pham</p>
+                      <h3 className="mb-2 font-semibold">Chưa có tin nhắn nào</h3>
+                      <p className="text-sm text-muted-foreground">Bắt đầu trò chuyện với người bán từ trang sản phẩm</p>
                     </div>
                   )}
                 </CardContent>
               </Card>
             </TabsContent>
-          </Tabs>
-        </div>
-      </main>
+      </Tabs>
 
-      <Footer />
-    </div>
+      <Sheet open={isEditProfileOpen} onOpenChange={handleEditProfileOpenChange}>
+        <SheetContent side="right" className="w-full gap-0 p-0 sm:max-w-xl">
+          <SheetHeader className="border-b bg-muted/40 px-6 py-5">
+            <SheetTitle className="text-xl">Chỉnh sửa hồ sơ</SheetTitle>
+            <SheetDescription>Cập nhật thông tin hiển thị và ảnh đại diện của bạn.</SheetDescription>
+          </SheetHeader>
+
+          <form className="flex h-[calc(100dvh-84px)] flex-col" onSubmit={(event) => void handleSaveProfile(event)}>
+            <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">
+              <div className="rounded-2xl border border-border/70 bg-gradient-to-br from-primary/5 via-background to-background p-4">
+                <Label className="text-sm font-medium">Ảnh đại diện</Label>
+                <div className="mt-3 flex items-center gap-4">
+                  <Avatar className="h-20 w-20 ring-4 ring-primary/15">
+                    <AvatarImage src={avatarPreview ?? undefined} alt={profileName || user.name} />
+                    <AvatarFallback className="text-xl">{(profileName || user.name).charAt(0)}</AvatarFallback>
+                  </Avatar>
+
+                  <div className="flex-1 space-y-3">
+                    <input
+                      ref={avatarInputRef}
+                      type="file"
+                      accept={AVATAR_MIME_TYPES.join(',')}
+                      className="hidden"
+                      onChange={handleAvatarFileChange}
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" variant="outline" onClick={() => avatarInputRef.current?.click()}>
+                        <Upload className="mr-2 h-4 w-4" />
+                        Tải avatar mới
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={removeAvatar}
+                        disabled={!avatarPreview && !avatarFile && !user.avatar}
+                      >
+                        <X className="mr-2 h-4 w-4" />
+                        Xóa avatar
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      JPG, PNG hoặc WEBP. Tối đa 5MB.
+                      {avatarFile ? ` Đã chọn: ${avatarFile.name}` : ''}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4 rounded-2xl border border-border/70 p-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="profile-name">Tên hiển thị</Label>
+                    <span className="text-xs text-muted-foreground">{profileName.length}/100</span>
+                  </div>
+                  <Input
+                    id="profile-name"
+                    value={profileName}
+                    minLength={2}
+                    maxLength={100}
+                    onChange={(event) => setProfileName(event.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Ngành học</Label>
+                  <Select value={profileDepartment} onValueChange={(value) => setProfileDepartment(value as Department)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(departmentLabels).map(([key, label]) => (
+                        <SelectItem key={key} value={key}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-4 rounded-2xl border border-dashed border-border/80 bg-muted/20 p-4">
+                <p className="text-sm font-medium">Thông tin tài khoản (chỉ đọc)</p>
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <Input value={user.email} disabled />
+                </div>
+                <div className="space-y-2">
+                  <Label>MSSV</Label>
+                  <Input value={user.studentId} disabled />
+                </div>
+              </div>
+            </div>
+
+            <SheetFooter className="border-t bg-background/95 px-6 py-4 backdrop-blur">
+              <div className="flex w-full gap-2">
+                <Button type="button" variant="outline" className="flex-1" onClick={() => setIsEditProfileOpen(false)}>
+                  Hủy
+                </Button>
+                <Button type="submit" className="flex-1" disabled={!hasProfileChanges || isSavingProfile}>
+                  {isSavingProfile ? 'Đang lưu...' : 'Lưu thay đổi'}
+                </Button>
+              </div>
+            </SheetFooter>
+          </form>
+        </SheetContent>
+      </Sheet>
+    </AppShell>
   )
 }
 

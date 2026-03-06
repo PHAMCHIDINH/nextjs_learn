@@ -1,24 +1,24 @@
-﻿'use client'
+'use client'
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import {
-  Menu,
-  X,
-  Search,
   Bell,
-  MessageSquare,
-  Plus,
-  User,
-  LogOut,
-  Settings,
   Heart,
+  LogOut,
+  Menu,
+  MessageSquare,
   Package,
+  Plus,
+  Search,
+  Settings,
   ShoppingBag,
+  User,
+  X,
 } from 'lucide-react'
+import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
-import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,14 +26,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/shared/ui/dropdown-menu'
-import { Badge } from '@/shared/ui/badge'
+import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/providers/auth-provider'
 
 const navigation = [
-  { name: 'Trang chu', href: '/' },
-  { name: 'Cho', href: '/marketplace' },
-  { name: 'Tin nhan', href: '/chat', badge: 2 },
+  { name: 'Trang chủ', href: '/' },
+  { name: 'Chợ', href: '/marketplace' },
+  { name: 'Tin nhắn', href: '/chat', badge: 2 },
 ]
 
 export function Header() {
@@ -55,7 +55,7 @@ export function Header() {
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
             <ShoppingBag className="h-5 w-5 text-primary-foreground" />
           </div>
-          <span className="text-lg font-bold text-foreground">Cho Sinh Vien</span>
+          <span className="text-lg font-bold text-foreground">Chợ Sinh Viên</span>
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex">
@@ -71,11 +71,11 @@ export function Header() {
               )}
             >
               {item.name}
-              {item.badge && (
+              {item.badge ? (
                 <Badge variant="destructive" className="ml-1 h-5 w-5 rounded-full p-0 text-xs">
                   {item.badge}
                 </Badge>
-              )}
+              ) : null}
             </Link>
           ))}
         </nav>
@@ -105,7 +105,7 @@ export function Header() {
               <Link href="/post/new">
                 <Button size="sm" className="gap-2">
                   <Plus className="h-4 w-4" />
-                  Dang tin
+                  Đăng tin
                 </Button>
               </Link>
               <DropdownMenu>
@@ -126,7 +126,7 @@ export function Header() {
                       <AvatarFallback>{user?.name?.charAt(0) ?? 'U'}</AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col space-y-0.5">
-                      <p className="text-sm font-medium">{user?.name ?? 'Sinh vien'}</p>
+                      <p className="text-sm font-medium">{user?.name ?? 'Sinh viên'}</p>
                       <p className="text-xs text-muted-foreground">{user?.studentId ?? ''}</p>
                     </div>
                   </div>
@@ -140,17 +140,17 @@ export function Header() {
                   <DropdownMenuItem asChild>
                     <Link href="/dashboard?tab=posts" className="flex cursor-pointer items-center gap-2">
                       <Package className="h-4 w-4" />
-                      Bai dang cua toi
+                      Bài đăng của tôi
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link href="/dashboard?tab=saved" className="flex cursor-pointer items-center gap-2">
                       <Heart className="h-4 w-4" />
-                      Da luu
+                      Đã lưu
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  {user?.role === 'admin' && (
+                  {user?.role === 'admin' ? (
                     <>
                       <DropdownMenuItem asChild>
                         <Link href="/admin" className="flex cursor-pointer items-center gap-2">
@@ -160,13 +160,13 @@ export function Header() {
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                     </>
-                  )}
+                  ) : null}
                   <DropdownMenuItem
                     className="flex cursor-pointer items-center gap-2 text-destructive"
                     onClick={handleLogout}
                   >
                     <LogOut className="h-4 w-4" />
-                    Dang xuat
+                    Đăng xuất
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -174,10 +174,10 @@ export function Header() {
           ) : (
             <>
               <Link href="/auth">
-                <Button variant="ghost">Dang nhap</Button>
+                <Button variant="ghost">Đăng nhập</Button>
               </Link>
               <Link href="/auth?mode=register">
-                <Button>Dang ky</Button>
+                <Button>Đăng ký</Button>
               </Link>
             </>
           )}
@@ -193,7 +193,7 @@ export function Header() {
         </Button>
       </div>
 
-      {mobileMenuOpen && (
+      {mobileMenuOpen ? (
         <div className="border-t border-border bg-background md:hidden">
           <nav className="container mx-auto flex flex-col gap-1 p-4">
             {navigation.map((item) => (
@@ -209,11 +209,11 @@ export function Header() {
                 )}
               >
                 {item.name}
-                {item.badge && (
+                {item.badge ? (
                   <Badge variant="destructive" className="h-5 w-5 rounded-full p-0 text-xs">
                     {item.badge}
                   </Badge>
-                )}
+                ) : null}
               </Link>
             ))}
             <div className="my-2 h-px bg-border" />
@@ -225,7 +225,7 @@ export function Header() {
                   className="flex items-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-medium text-primary-foreground"
                 >
                   <Plus className="h-4 w-4" />
-                  Dang tin moi
+                  Đăng tin mới
                 </Link>
                 <Link
                   href="/dashboard"
@@ -235,7 +235,7 @@ export function Header() {
                   <User className="h-4 w-4" />
                   Dashboard
                 </Link>
-                {user?.role === 'admin' && (
+                {user?.role === 'admin' ? (
                   <Link
                     href="/admin"
                     onClick={() => setMobileMenuOpen(false)}
@@ -244,33 +244,33 @@ export function Header() {
                     <Settings className="h-4 w-4" />
                     Admin Panel
                   </Link>
-                )}
+                ) : null}
                 <button
                   onClick={() => {
                     setMobileMenuOpen(false)
-                    handleLogout()
+                    void handleLogout()
                   }}
                   className="flex items-center gap-2 rounded-lg px-4 py-3 text-left text-sm font-medium text-destructive hover:bg-muted"
                 >
                   <LogOut className="h-4 w-4" />
-                  Dang xuat
+                  Đăng xuất
                 </button>
               </>
             ) : (
               <div className="flex flex-col gap-2">
                 <Link href="/auth" onClick={() => setMobileMenuOpen(false)}>
                   <Button variant="outline" className="w-full">
-                    Dang nhap
+                    Đăng nhập
                   </Button>
                 </Link>
                 <Link href="/auth?mode=register" onClick={() => setMobileMenuOpen(false)}>
-                  <Button className="w-full">Dang ky</Button>
+                  <Button className="w-full">Đăng ký</Button>
                 </Link>
               </div>
             )}
           </nav>
         </div>
-      )}
+      ) : null}
     </header>
   )
 }

@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import {
-  ShieldCheck,
   Package,
   Flag,
   Users,
@@ -18,8 +17,7 @@ import {
 import { formatDistanceToNow } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import { toast } from 'sonner'
-import { Header } from '@/components/header'
-import { Footer } from '@/components/footer'
+import { AppShell } from '@/components/app-shell'
 import { Button } from '@/shared/ui/button'
 import { Badge } from '@/shared/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar'
@@ -77,7 +75,6 @@ export default function AdminPage() {
     if (user?.role === 'admin') {
       loadAdminData()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, user?.role])
 
   const stats = useMemo(
@@ -178,7 +175,6 @@ export default function AdminPage() {
   if (!user || user.role !== 'admin') {
     return (
       <div className="flex min-h-screen flex-col">
-        <Header />
         <main className="flex flex-1 items-center justify-center">
           <div className="text-center">
             <p className="mb-4 text-muted-foreground">Ban khong co quyen truy cap trang admin</p>
@@ -187,35 +183,24 @@ export default function AdminPage() {
             </Link>
           </div>
         </main>
-        <Footer />
       </div>
     )
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <Header />
-
-      <main className="flex-1 bg-muted/30 py-6">
-        <div className="container mx-auto px-4">
-          <div className="mb-6 flex items-center gap-4">
-            <Link href="/dashboard">
-              <Button variant="ghost" size="icon">
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-            </Link>
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-                <ShieldCheck className="h-5 w-5 text-primary-foreground" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold">Admin Panel</h1>
-                <p className="text-sm text-muted-foreground">Quan ly bai dang va bao cao vi pham</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <AppShell
+      title="Admin Panel"
+      description="Quan ly bai dang va bao cao vi pham"
+      actions={
+        <Link href="/dashboard">
+          <Button variant="outline" className="gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Ve dashboard
+          </Button>
+        </Link>
+      }
+    >
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {stats.map((stat) => (
               <Card key={stat.label}>
                 <CardContent className="flex items-center gap-4 p-6">
@@ -229,9 +214,9 @@ export default function AdminPage() {
                 </CardContent>
               </Card>
             ))}
-          </div>
+      </div>
 
-          <Tabs defaultValue="pending" className="space-y-6">
+      <Tabs defaultValue="pending" className="space-y-6">
             <TabsList>
               <TabsTrigger value="pending" className="gap-2">
                 <Clock className="h-4 w-4" />
@@ -442,11 +427,7 @@ export default function AdminPage() {
                 </CardContent>
               </Card>
             </TabsContent>
-          </Tabs>
-        </div>
-      </main>
-
-      <Footer />
-    </div>
+      </Tabs>
+    </AppShell>
   )
 }
