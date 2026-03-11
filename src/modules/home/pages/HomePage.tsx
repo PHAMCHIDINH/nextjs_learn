@@ -1,4 +1,7 @@
+'use client'
+
 import Link from 'next/link'
+import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowRight,
   BookOpen,
@@ -17,12 +20,13 @@ import {
 } from 'lucide-react'
 import { Footer } from '@/components/footer'
 import { Header } from '@/components/header'
+import { statsApi } from '@/lib/api'
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Separator } from '@/shared/ui/separator'
-import type { Category } from '@/lib/types'
+import type { Category, PublicStats } from '@/lib/types'
 
 const categorySpotlights: Array<{
   key: Category
@@ -84,13 +88,6 @@ const trustPoints = [
   },
 ]
 
-const storyStats = [
-  { value: '5,000+', label: 'sinh viên tham gia' },
-  { value: '12,000+', label: 'sản phẩm đã đăng' },
-  { value: '8,500+', label: 'giao dịch đã khớp' },
-  { value: '98%', label: 'người dùng quay lại' },
-]
-
 const steps = [
   {
     index: '01',
@@ -131,6 +128,42 @@ const testimonials = [
 ]
 
 export default function HomePage() {
+  const [stats, setStats] = useState<PublicStats | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+
+    const run = async () => {
+      try {
+        const response = await statsApi.public()
+        if (mounted) {
+          setStats(response)
+        }
+      } catch {
+        if (mounted) {
+          setStats(null)
+        }
+      }
+    }
+
+    void run()
+
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  const storyStats = useMemo(() => {
+    const formatCount = (value: number) => `${new Intl.NumberFormat('vi-VN').format(value)}+`
+
+    return [
+      { value: stats ? formatCount(stats.totalUsers) : '...', label: 'sinh vien tham gia' },
+      { value: stats ? formatCount(stats.totalListings) : '...', label: 'san pham da dang' },
+      { value: stats ? formatCount(stats.totalConversations) : '...', label: 'hoi thoai da tao' },
+      { value: '98%', label: 'nguoi dung quay lai' },
+    ]
+  }, [stats])
+
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,_rgba(34,197,94,0.18),_transparent_28%),linear-gradient(180deg,_rgba(250,250,249,1)_0%,_rgba(244,244,245,1)_100%)]">
       <Header />

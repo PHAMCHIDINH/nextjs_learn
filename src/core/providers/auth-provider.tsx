@@ -10,7 +10,8 @@ import {
   type ReactNode,
 } from 'react'
 import type { User } from '@/lib/types'
-import { authApi, clearAccessToken, setAccessToken } from '@/lib/api'
+import { clearAccessToken, setAccessToken } from '@/core/api/http'
+import { authApi } from '@/modules/auth/services/auth.api'
 
 type SessionInput = {
   accessToken: string

@@ -13,7 +13,7 @@ import {
   ShoppingBag,
 } from 'lucide-react'
 import { departmentLabels } from '@/lib/types'
-import { useAuth } from '@/providers/auth-provider'
+import { useAuth } from '@/core/providers/auth-provider'
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar'
 import { Button } from '@/shared/ui/button'
 import {

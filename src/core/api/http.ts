@@ -1,0 +1,142 @@
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3000'
+const ACCESS_TOKEN_KEY = 'cho_sinh_vien_access_token'
+
+type UnknownRecord = Record<string, unknown>
+
+export type ApiRequestOptions = Omit<RequestInit, 'body'> & {
+  json?: unknown
+  formData?: FormData
+  auth?: boolean
+}
+
+export type ApiMeta = {
+  total: number
+  page: number
+  limit: number
+  totalPages: number
+}
+
+export type ApiQueryPrimitive = string | number | boolean
+export type ApiQueryValue = ApiQueryPrimitive | ApiQueryPrimitive[] | undefined | null
+
+export class ApiError extends Error {
+  status: number
+  data?: unknown
+
+  constructor(message: string, status: number, data?: unknown) {
+    super(message)
+    this.status = status
+    this.data = data
+  }
+}
+
+const isRecord = (value: unknown): value is UnknownRecord =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const parseJsonResponse = (raw: string): unknown => {
+  if (!raw) {
+    return null
+  }
+
+  try {
+    return JSON.parse(raw) as unknown
+  } catch {
+    return raw
+  }
+}
+
+const getErrorMessage = (status: number, data: unknown) => {
+  if (isRecord(data)) {
+    const message = data.message
+    if (typeof message === 'string' && message.trim()) {
+      return message
+    }
+
+    if (Array.isArray(message) && message.length > 0 && typeof message[0] === 'string') {
+      return message[0]
+    }
+  }
+
+  return `Request failed with status ${status}`
+}
+
+export const toQueryString = (query?: Record<string, ApiQueryValue>) => {
+  if (!query) {
+    return ''
+  }
+
+  const params = new URLSearchParams()
+  Object.entries(query).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') {
+      return
+    }
+
+    if (Array.isArray(value)) {
+      value
+        .filter((item) => item !== undefined && item !== null && item !== '')
+        .forEach((item) => {
+          params.append(key, String(item))
+        })
+      return
+    }
+
+    params.set(key, String(value))
+  })
+
+  const text = params.toString()
+  return text ? `?${text}` : ''
+}
+
+export const getAccessToken = () => {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  return window.localStorage.getItem(ACCESS_TOKEN_KEY)
+}
+
+export const setAccessToken = (token: string) => {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.localStorage.setItem(ACCESS_TOKEN_KEY, token)
+}
+
+export const clearAccessToken = () => {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.localStorage.removeItem(ACCESS_TOKEN_KEY)
+}
+
+export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
+  const { json, formData, auth = true, headers, ...rest } = options
+  const token = auth ? getAccessToken() : null
+
+  const mergedHeaders = new Headers(headers ?? {})
+  if (json !== undefined) {
+    mergedHeaders.set('Content-Type', 'application/json')
+  }
+
+  if (token) {
+    mergedHeaders.set('Authorization', `Bearer ${token}`)
+  }
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...rest,
+    credentials: 'include',
+    headers: mergedHeaders,
+    body: json !== undefined ? JSON.stringify(json) : formData,
+  })
+
+  const raw = await response.text()
+  const data = parseJsonResponse(raw)
+
+  if (!response.ok) {
+    throw new ApiError(getErrorMessage(response.status, data), response.status, data)
+  }
+
+  return data as T
+}

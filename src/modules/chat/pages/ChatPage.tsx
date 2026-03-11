@@ -1,7 +1,7 @@
 'use client'
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { io, type Socket } from 'socket.io-client'
@@ -23,13 +23,23 @@ import { format, formatDistanceToNow, isToday, isYesterday } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import { toast } from 'sonner'
 import { Header } from '@/components/header'
-import { conversationsApi, getAccessToken, uploadsApi } from '@/lib/api'
-import { useAuth } from '@/providers/auth-provider'
+import { conversationsApi, getAccessToken, uploadsApi, usersApi } from '@/lib/api'
+import { useAuth } from '@/core/providers/auth-provider'
 import type { Conversation, Message } from '@/lib/types'
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent } from '@/shared/ui/card'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/shared/ui/alert-dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/ui/dropdown-menu'
 import { Input } from '@/shared/ui/input'
 import { ScrollArea } from '@/shared/ui/scroll-area'
@@ -40,6 +50,7 @@ const FALLBACK_POLL_MS = 6000
 const MESSAGE_ACK_TIMEOUT_MS = 10000
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
+const MUTED_CONVERSATIONS_KEY = 'cho_sinh_vien_muted_conversations'
 
 type DeliveryStatus = 'sending' | 'sent' | 'failed'
 
@@ -84,6 +95,11 @@ type ChatAreaPanelProps = {
   onPickImage: () => void
   onRemovePendingImage: () => void
   onBackMobile: () => void
+  onViewProfile: () => void
+  onToggleMute: () => void
+  onBlockUser: () => Promise<void>
+  isMuted: boolean
+  isBlockingUser: boolean
   messagesEndRef: RefObject<HTMLDivElement | null>
 }
 
@@ -157,6 +173,36 @@ const formatMessageTime = (date: Date) => {
   }
 
   return format(date, 'dd/MM HH:mm')
+}
+
+const readMutedConversations = () => {
+  if (typeof window === 'undefined') {
+    return new Set<string>()
+  }
+
+  const raw = window.localStorage.getItem(MUTED_CONVERSATIONS_KEY)
+  if (!raw) {
+    return new Set<string>()
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) {
+      return new Set<string>()
+    }
+
+    return new Set(parsed.filter((value): value is string => typeof value === 'string' && value.trim().length > 0))
+  } catch {
+    return new Set<string>()
+  }
+}
+
+const saveMutedConversations = (mutedIds: Set<string>) => {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.localStorage.setItem(MUTED_CONVERSATIONS_KEY, JSON.stringify(Array.from(mutedIds)))
 }
 
 function ConversationListPanel({
@@ -288,8 +334,15 @@ function ChatAreaPanel({
   onPickImage,
   onRemovePendingImage,
   onBackMobile,
+  onViewProfile,
+  onToggleMute,
+  onBlockUser,
+  isMuted,
+  isBlockingUser,
   messagesEndRef,
 }: ChatAreaPanelProps) {
+  const [blockDialogOpen, setBlockDialogOpen] = useState(false)
+
   if (!selectedConversation) {
     return (
       <div className="flex h-full flex-col items-center justify-center bg-[linear-gradient(180deg,_rgba(244,244,245,0.9)_0%,_rgba(255,255,255,0.96)_100%)] p-8 text-center">
@@ -343,11 +396,44 @@ function ChatAreaPanel({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem>Xem ho so</DropdownMenuItem>
-            <DropdownMenuItem>Tat thong bao</DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive">Chan nguoi dung</DropdownMenuItem>
+            <DropdownMenuItem onClick={onViewProfile} disabled={!otherParticipant?.id}>
+              Xem ho so
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onToggleMute}>
+              {isMuted ? 'Bat thong bao' : 'Tat thong bao'}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="text-destructive"
+              onClick={() => setBlockDialogOpen(true)}
+              disabled={!otherParticipant?.id || isBlockingUser}
+            >
+              {isBlockingUser ? 'Dang chan...' : 'Chan nguoi dung'}
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        <AlertDialog open={blockDialogOpen} onOpenChange={setBlockDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Chan nguoi dung nay?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Sau khi chan, nguoi nay khong the gui tin nhan moi cho ban.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Huy</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={async () => {
+                  await onBlockUser()
+                  setBlockDialogOpen(false)
+                }}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Chan nguoi dung
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
 
       {selectedConversation.product ? (
@@ -497,6 +583,7 @@ function ChatAreaPanel({
 }
 
 function ChatContent() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const presetConversationId = searchParams.get('conversation')
   const productId = searchParams.get('product')
@@ -517,6 +604,8 @@ function ChatContent() {
   const [isUploadingImage, setIsUploadingImage] = useState(false)
   const [isSocketConnected, setIsSocketConnected] = useState(false)
   const [showMobileChat, setShowMobileChat] = useState(false)
+  const [isBlockingUser, setIsBlockingUser] = useState(false)
+  const [mutedConversationIds, setMutedConversationIds] = useState<string[]>([])
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -524,6 +613,7 @@ function ChatContent() {
   const selectedConversationIdRef = useRef<string | null>(null)
   const currentUserIdRef = useRef<string | undefined>(undefined)
   const pendingTimeoutsRef = useRef<Map<string, number>>(new Map())
+  const mutedConversationIdsRef = useRef<Set<string>>(new Set())
 
   const selectedConversation = useMemo(
     () => conversations.find((conversation) => conversation.id === selectedConversationId) ?? null,
@@ -560,6 +650,78 @@ function ChatContent() {
     },
     [clearPendingTimeout],
   )
+
+  const toggleMute = useCallback((conversationId: string) => {
+    setMutedConversationIds((previous) => {
+      const next = new Set(previous)
+      const isMuted = next.has(conversationId)
+
+      if (isMuted) {
+        next.delete(conversationId)
+      } else {
+        next.add(conversationId)
+      }
+
+      saveMutedConversations(next)
+      toast.success(isMuted ? 'Da bat thong bao hoi thoai' : 'Da tat thong bao hoi thoai')
+
+      return Array.from(next)
+    })
+  }, [])
+
+  const handleViewProfile = useCallback(() => {
+    const otherParticipant = selectedConversation?.participants.find(
+      (participant) => participant.id !== currentUserId,
+    )
+
+    if (!otherParticipant?.id) {
+      return
+    }
+
+    router.push(`/users/${otherParticipant.id}`)
+  }, [currentUserId, router, selectedConversation])
+
+  const handleBlockUser = useCallback(async () => {
+    if (!selectedConversation || !currentUserId || isBlockingUser) {
+      return
+    }
+
+    const otherParticipant = selectedConversation.participants.find(
+      (participant) => participant.id !== currentUserId,
+    )
+
+    if (!otherParticipant?.id) {
+      return
+    }
+
+    setIsBlockingUser(true)
+    try {
+      await usersApi.blockUser(otherParticipant.id)
+      toast.success('Da chan nguoi dung')
+
+      setConversations((previous) => {
+        const next = previous.filter((conversation) => conversation.id !== selectedConversation.id)
+        const nextSelectedId = next[0]?.id ?? null
+        selectedConversationIdRef.current = nextSelectedId
+        setSelectedConversationId(nextSelectedId)
+
+        if (!nextSelectedId) {
+          setMessages([])
+          setShowMobileChat(false)
+        }
+
+        return next
+      })
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Khong chan duoc nguoi dung')
+    } finally {
+      setIsBlockingUser(false)
+    }
+  }, [currentUserId, isBlockingUser, selectedConversation])
+
+  const isSelectedConversationMuted = selectedConversationId
+    ? mutedConversationIds.includes(selectedConversationId)
+    : false
 
   const syncConversations = useCallback(
     async ({
@@ -677,6 +839,15 @@ function ChatContent() {
   }, [currentUserId])
 
   useEffect(() => {
+    const muted = readMutedConversations()
+    setMutedConversationIds(Array.from(muted))
+  }, [])
+
+  useEffect(() => {
+    mutedConversationIdsRef.current = new Set(mutedConversationIds)
+  }, [mutedConversationIds])
+
+  useEffect(() => {
     void syncConversations({ withLoading: true, preferPreset: true })
   }, [currentUserId, syncConversations])
 
@@ -768,6 +939,18 @@ function ChatContent() {
       }
 
       if (selectedConversationIdRef.current !== conversationId) {
+        if (
+          incomingMessage.senderId !== currentUserIdRef.current &&
+          !mutedConversationIdsRef.current.has(conversationId)
+        ) {
+          toast('Tin nhan moi', {
+            description:
+              incomingMessage.content.trim() ||
+              (incomingMessage.type === 'image'
+                ? 'Ban vua nhan 1 hinh anh'
+                : 'Ban vua nhan 1 tin nhan'),
+          })
+        }
         void syncConversationsRef.current({ silentError: true })
         return
       }
@@ -1052,6 +1235,15 @@ function ChatContent() {
               onPickImage={() => fileInputRef.current?.click()}
               onRemovePendingImage={clearPendingImage}
               onBackMobile={() => setShowMobileChat(false)}
+              onViewProfile={handleViewProfile}
+              onToggleMute={() => {
+                if (selectedConversationId) {
+                  toggleMute(selectedConversationId)
+                }
+              }}
+              onBlockUser={handleBlockUser}
+              isMuted={isSelectedConversationMuted}
+              isBlockingUser={isBlockingUser}
               messagesEndRef={messagesEndRef}
             />
           </div>
@@ -1084,6 +1276,15 @@ function ChatContent() {
               onPickImage={() => fileInputRef.current?.click()}
               onRemovePendingImage={clearPendingImage}
               onBackMobile={() => setShowMobileChat(false)}
+              onViewProfile={handleViewProfile}
+              onToggleMute={() => {
+                if (selectedConversationId) {
+                  toggleMute(selectedConversationId)
+                }
+              }}
+              onBlockUser={handleBlockUser}
+              isMuted={isSelectedConversationMuted}
+              isBlockingUser={isBlockingUser}
               messagesEndRef={messagesEndRef}
             />
           </div>

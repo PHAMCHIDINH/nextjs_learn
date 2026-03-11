@@ -41,6 +41,8 @@ const sortOptions = [
   { value: 'popular', label: 'Phổ biến nhất' },
 ] as const
 
+const PAGE_SIZE = 24
+
 function MarketplaceContent() {
   const searchParams = useSearchParams()
   const initialCategory = searchParams.get('category') as Category | null
@@ -57,7 +59,10 @@ function MarketplaceContent() {
 
   const [products, setProducts] = useState<Product[]>([])
   const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const formatPriceCompact = (price: number) => {
@@ -71,6 +76,23 @@ function MarketplaceContent() {
   const toggleArrayItem = <T,>(array: T[], item: T): T[] =>
     array.includes(item) ? array.filter((value) => value !== item) : [...array, item]
 
+  const queryParams = useMemo(
+    () => ({
+      search: searchQuery || undefined,
+      category: selectedCategories.length === 1 ? selectedCategories[0] : undefined,
+      categories: selectedCategories.length > 1 ? selectedCategories : undefined,
+      condition: selectedConditions.length === 1 ? selectedConditions[0] : undefined,
+      conditions: selectedConditions.length > 1 ? selectedConditions : undefined,
+      department: selectedDepartments.length === 1 ? selectedDepartments[0] : undefined,
+      departments: selectedDepartments.length > 1 ? selectedDepartments : undefined,
+      status: selectedStatuses.length === 1 ? selectedStatuses[0] : undefined,
+      minPrice: priceRange[0] > 0 ? priceRange[0] : undefined,
+      maxPrice: priceRange[1] < 10_000_000 ? priceRange[1] : undefined,
+      sortBy,
+    }),
+    [priceRange, searchQuery, selectedCategories, selectedConditions, selectedDepartments, selectedStatuses, sortBy],
+  )
+
   useEffect(() => {
     const timer = setTimeout(async () => {
       setLoading(true)
@@ -78,30 +100,53 @@ function MarketplaceContent() {
 
       try {
         const response = await listingsApi.list({
+          ...queryParams,
           page: 1,
-          limit: 60,
-          search: searchQuery || undefined,
-          category: selectedCategories[0],
-          condition: selectedConditions[0],
-          department: selectedDepartments[0],
-          status: selectedStatuses.length === 1 ? selectedStatuses[0] : undefined,
-          minPrice: priceRange[0] > 0 ? priceRange[0] : undefined,
-          maxPrice: priceRange[1] < 10_000_000 ? priceRange[1] : undefined,
-          sortBy,
+          limit: PAGE_SIZE,
         })
 
         setProducts(response.data)
         setTotal(response.meta.total)
+        setPage(1)
+        setHasMore(response.meta.page < response.meta.totalPages)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Không tải dữ liệu được')
         setProducts([])
+        setTotal(0)
+        setPage(1)
+        setHasMore(false)
       } finally {
         setLoading(false)
       }
     }, 300)
 
     return () => clearTimeout(timer)
-  }, [priceRange, searchQuery, selectedCategories, selectedConditions, selectedDepartments, selectedStatuses, sortBy])
+  }, [queryParams])
+
+  const loadMore = async () => {
+    if (!hasMore || loadingMore || loading) {
+      return
+    }
+
+    const nextPage = page + 1
+    setLoadingMore(true)
+    try {
+      const response = await listingsApi.list({
+        ...queryParams,
+        page: nextPage,
+        limit: PAGE_SIZE,
+      })
+
+      setProducts((previous) => [...previous, ...response.data])
+      setPage(nextPage)
+      setHasMore(response.meta.page < response.meta.totalPages)
+      setTotal(response.meta.total)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Không tải thêm dữ liệu được')
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   const activeFilterCount =
     selectedCategories.length +
@@ -537,6 +582,21 @@ function MarketplaceContent() {
               </div>
 
               {renderContent}
+
+              {!loading && !error && products.length > 0 && hasMore ? (
+                <div className="pt-2 text-center">
+                  <Button onClick={loadMore} disabled={loadingMore} variant="outline" className="rounded-full">
+                    {loadingMore ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Dang tai...
+                      </>
+                    ) : (
+                      'Tai them'
+                    )}
+                  </Button>
+                </div>
+              ) : null}
             </div>
           </div>
         </section>

@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { Toaster } from 'sonner'
-import { AuthProvider } from '@/providers/auth-provider'
+import { AuthProvider } from '@/core/providers/auth-provider'
 import './globals.css'
 
 const inter = Inter({ 

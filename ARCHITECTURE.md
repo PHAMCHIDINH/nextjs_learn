@@ -5,35 +5,37 @@ src
 |-- app
 |   |-- layout.tsx
 |   |-- page.tsx
-|   `-- globals.css
+|   `-- ...route segments
+|-- core
+|   |-- api
+|   |   |-- http.ts
+|   |   `-- mappers.ts
+|   `-- providers
+|       `-- auth-provider.tsx
 |-- modules
-|   |-- home
-|   |   |-- components
-|   |   |-- hooks
+|   |-- <feature>
+|   |   |-- pages
 |   |   `-- services
 |   |-- auth
-|   |   |-- components
-|   |   |-- hooks
-|   |   |-- services
-|   |   `-- types
-|   `-- users
-|       |-- components
-|       |-- hooks
-|       |-- services
-|       `-- types
+|   |-- users
+|   |-- listings
+|   |-- chat
+|   `-- ...
 |-- shared
-|   |-- components/ui
-|   |-- hooks
-|   |-- lib
-|   |-- constants
-|   `-- types
-`-- core
-    |-- config
-    `-- providers
+|   |-- ui
+|   `-- hooks
+|-- components
+|   `-- cross-feature composed components
+`-- lib
+    |-- types.ts
+    `-- utils.ts
 ```
 
 Principles:
-- `app/*`: Route entrypoints only (compose UI from modules).
-- `modules/*`: Feature/business code grouped by domain.
-- `shared/*`: Reusable code not tied to one business domain.
-- `core/*`: App-wide providers and global configuration.
+- `app/*`: route entrypoints only; each route composes a page from `modules/*/pages`.
+- `modules/*`: feature-level code. API calls for each feature live in `modules/*/services`.
+- `core/api`: shared HTTP client, query builder, response mappers.
+- `core/providers`: app-wide providers (for example auth/session).
+- `shared/*`: UI primitives and utility hooks reused by many features.
+- `components/*`: cross-feature composed UI blocks (header, footer, cards, shells).
+- `lib/*`: framework-agnostic utilities and domain types.

@@ -1,16 +1,17 @@
 'use client'
 
-import { use, useEffect, useMemo, useState } from 'react'
+import { use, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { ArrowLeft, Info, Loader2, Save } from 'lucide-react'
+import { ArrowLeft, ImagePlus, Info, Loader2, Save, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Header } from '@/components/header'
-import { categoriesApi, listingsApi } from '@/lib/api'
+import { categoriesApi, listingsApi, uploadsApi } from '@/lib/api'
 import { categoryLabels, conditionLabels, departmentLabels } from '@/lib/types'
 import type { Category, Condition, Department, Product } from '@/lib/types'
-import { useAuth } from '@/providers/auth-provider'
+import { useAuth } from '@/core/providers/auth-provider'
+import { cn } from '@/lib/utils'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Input } from '@/shared/ui/input'
@@ -22,14 +23,27 @@ type EditPostPageProps = {
   params: Promise<{ id: string }>
 }
 
+type EditableImage = {
+  url: string
+  publicId?: string
+}
+
+const MAX_IMAGE_COUNT = 5
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024
+const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
+
 export default function EditPostPage({ params }: EditPostPageProps) {
   const { id } = use(params)
   const router = useRouter()
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
   const { user, loading: authLoading } = useAuth()
 
   const [isSaving, setIsSaving] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
   const [loadingData, setLoadingData] = useState(true)
   const [product, setProduct] = useState<Product | null>(null)
+  const [images, setImages] = useState<EditableImage[]>([])
   const [categories, setCategories] = useState<Array<{ key: string; name: string }>>([])
 
   const [formData, setFormData] = useState({
@@ -74,6 +88,7 @@ export default function EditPostPage({ params }: EditPostPageProps) {
           condition: detail.condition,
           department: detail.department,
         })
+        setImages(detail.images.map((url) => ({ url })))
       } catch (error) {
         toast.error(error instanceof Error ? error.message : 'Khong tai du lieu bai dang duoc')
         router.replace('/dashboard?tab=posts')
@@ -100,6 +115,64 @@ export default function EditPostPage({ params }: EditPostPageProps) {
     [categories],
   )
 
+  const validateFiles = (files: File[]) => {
+    if (files.length === 0) {
+      return { valid: false, message: 'Khong co file nao duoc chon' }
+    }
+
+    if (images.length + files.length > MAX_IMAGE_COUNT) {
+      return { valid: false, message: `Toi da ${MAX_IMAGE_COUNT} anh` }
+    }
+
+    const invalidType = files.find((file) => !ALLOWED_IMAGE_TYPES.has(file.type))
+    if (invalidType) {
+      return { valid: false, message: 'Chi chap nhan JPG, PNG, WEBP' }
+    }
+
+    const oversize = files.find((file) => file.size > MAX_IMAGE_SIZE)
+    if (oversize) {
+      return { valid: false, message: 'Moi anh toi da 5MB' }
+    }
+
+    return { valid: true, message: '' }
+  }
+
+  const uploadFiles = async (files: File[]) => {
+    const validation = validateFiles(files)
+    if (!validation.valid) {
+      toast.error(validation.message)
+      return
+    }
+
+    setIsUploading(true)
+    try {
+      const response = await uploadsApi.uploadImages(files)
+      setImages((previous) => [
+        ...previous,
+        ...response.data.map((image) => ({ url: image.url, publicId: image.publicId })),
+      ])
+      toast.success(`Da tai len ${response.data.length} anh`)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Khong tai anh len duoc')
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const handlePickFiles = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const fileList = event.target.files
+    if (!fileList) {
+      return
+    }
+
+    void uploadFiles(Array.from(fileList))
+    event.target.value = ''
+  }
+
+  const removeImage = (index: number) => {
+    setImages((previous) => previous.filter((_, imageIndex) => imageIndex !== index))
+  }
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
 
@@ -109,6 +182,11 @@ export default function EditPostPage({ params }: EditPostPageProps) {
 
     if (!formData.category || !formData.condition || !formData.department) {
       toast.error('Vui long nhap day du thong tin bat buoc')
+      return
+    }
+
+    if (images.length === 0) {
+      toast.error('Vui long giu lai it nhat 1 anh cho bai dang')
       return
     }
 
@@ -122,6 +200,10 @@ export default function EditPostPage({ params }: EditPostPageProps) {
         category: formData.category,
         condition: formData.condition,
         department: formData.department,
+        images: images.map((image) => ({
+          url: image.url,
+          publicId: image.publicId,
+        })),
       })
       toast.success('Cap nhat bai dang thanh cong')
       router.push('/dashboard?tab=posts')
@@ -174,22 +256,80 @@ export default function EditPostPage({ params }: EditPostPageProps) {
             <form onSubmit={handleSubmit} className="space-y-6">
               <Card className="border-border/70 bg-white/90 shadow-sm">
                 <CardHeader>
-                  <CardTitle className="text-lg">Hinh anh hien tai</CardTitle>
-                  <CardDescription>V1 chi cho sua thong tin, khong thay doi bo anh da tai len.</CardDescription>
+                  <CardTitle className="text-lg">Hinh anh bai dang</CardTitle>
+                  <CardDescription>Them, xoa va sap xep lai bo anh truoc khi luu thay doi.</CardDescription>
                 </CardHeader>
                 <CardContent>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    multiple
+                    className="hidden"
+                    onChange={handlePickFiles}
+                  />
+
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-                    {product.images.map((image, index) => (
-                      <div key={`${image}-${index}`} className="relative aspect-square overflow-hidden rounded-2xl border border-border bg-muted">
-                        <Image src={image} alt={`Anh san pham ${index + 1}`} fill className="object-cover" />
+                    {images.map((image, index) => (
+                      <div
+                        key={`${image.url}-${index}`}
+                        className="group relative aspect-square overflow-hidden rounded-2xl border border-border bg-muted"
+                      >
+                        <Image src={image.url} alt={`Anh san pham ${index + 1}`} fill className="object-cover" />
                         {index === 0 ? (
                           <div className="absolute left-2 top-2 rounded-full bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground">
                             Anh bia
                           </div>
                         ) : null}
+                        <button
+                          type="button"
+                          onClick={() => removeImage(index)}
+                          className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
                       </div>
                     ))}
+
+                    {images.length < MAX_IMAGE_COUNT ? (
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        onDragOver={(event) => {
+                          event.preventDefault()
+                          setDragOver(true)
+                        }}
+                        onDragLeave={() => setDragOver(false)}
+                        onDrop={(event) => {
+                          event.preventDefault()
+                          setDragOver(false)
+                          const droppedFiles = Array.from(event.dataTransfer.files)
+                          void uploadFiles(droppedFiles)
+                        }}
+                        disabled={isUploading}
+                        className={cn(
+                          'flex aspect-square flex-col items-center justify-center rounded-2xl border-2 border-dashed transition-colors',
+                          dragOver
+                            ? 'border-primary bg-primary/5'
+                            : 'border-border bg-background hover:border-primary/50 hover:bg-muted/50',
+                          isUploading && 'cursor-not-allowed opacity-60',
+                        )}
+                      >
+                        {isUploading ? (
+                          <Loader2 className="mb-2 h-6 w-6 animate-spin text-muted-foreground" />
+                        ) : (
+                          <ImagePlus className="mb-2 h-6 w-6 text-muted-foreground" />
+                        )}
+                        <span className="text-xs font-medium text-muted-foreground">
+                          {isUploading ? 'Dang tai...' : 'Them anh'}
+                        </span>
+                      </button>
+                    ) : null}
                   </div>
+
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Toi da {MAX_IMAGE_COUNT} anh, dinh dang JPG/PNG/WEBP, moi anh toi da 5MB.
+                  </p>
                 </CardContent>
               </Card>
 
@@ -320,7 +460,7 @@ export default function EditPostPage({ params }: EditPostPageProps) {
                 <Button type="button" variant="outline" className="h-11 flex-1 rounded-full" onClick={() => router.back()}>
                   Huy
                 </Button>
-                <Button type="submit" className="h-11 flex-1 gap-2 rounded-full" disabled={isSaving}>
+                <Button type="submit" className="h-11 flex-1 gap-2 rounded-full" disabled={isSaving || isUploading}>
                   {isSaving ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -342,7 +482,7 @@ export default function EditPostPage({ params }: EditPostPageProps) {
                   <h3 className="font-medium">Luu y</h3>
                   <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
                     <li>- Bai dang sua xong van theo trang thai kiem duyet hien tai.</li>
-                    <li>- Neu can thay doi bo anh, vui long tao bai dang moi o dot tiep theo.</li>
+                    <li>- Anh dau tien se duoc dung lam anh bia.</li>
                     <li>- Ban co the doi trang thai ban ngay trong Dashboard.</li>
                   </ul>
                 </CardContent>
@@ -352,7 +492,7 @@ export default function EditPostPage({ params }: EditPostPageProps) {
                 <CardContent className="p-5">
                   <p className="flex items-start gap-2 text-sm text-muted-foreground">
                     <Info className="mt-0.5 h-4 w-4 shrink-0" />
-                    Ban dang o phien ban V1 cua tinh nang sua bai dang: uu tien thong tin san pham va gia ban.
+                    Co the thay doi thong tin va bo anh trong cung mot lan cap nhat.
                   </p>
                 </CardContent>
               </Card>

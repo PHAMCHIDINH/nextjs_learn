@@ -25,8 +25,9 @@ import { toast } from 'sonner'
 import { Footer } from '@/components/footer'
 import { Header } from '@/components/header'
 import { ProductCard } from '@/components/product-card'
-import { conversationsApi, listingsApi, reportsApi } from '@/lib/api'
-import { useAuth } from '@/providers/auth-provider'
+import { ReportDialog } from '@/components/report-dialog'
+import { conversationsApi, listingsApi } from '@/lib/api'
+import { useAuth } from '@/core/providers/auth-provider'
 import type { Product } from '@/lib/types'
 import { categoryLabels, conditionLabels, departmentLabels, statusLabels } from '@/lib/types'
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar'
@@ -53,6 +54,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [imageError, setImageError] = useState<Record<number, boolean>>({})
   const [actionLoading, setActionLoading] = useState(false)
+  const [reportDialogOpen, setReportDialogOpen] = useState(false)
 
   useEffect(() => {
     const run = async () => {
@@ -168,18 +170,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       return
     }
 
-    setActionLoading(true)
-    try {
-      await reportsApi.create({
-        listingId: product.id,
-        reason: 'Người dùng báo cáo bài đăng này',
-      })
-      toast.success('Đã gửi báo cáo')
-    } catch {
-      toast.error('Không gửi được báo cáo')
-    } finally {
-      setActionLoading(false)
-    }
+    setReportDialogOpen(true)
   }
 
   if (isLoading) {
@@ -431,6 +422,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               </Button>
             </div>
           </div>
+
+          <ReportDialog open={reportDialogOpen} listingId={product.id} onOpenChange={setReportDialogOpen} />
 
           {relatedProducts.length > 0 ? (
             <section className="mt-16">

@@ -42,7 +42,7 @@ import { cn } from '@/lib/utils'
 import { conversationsApi, dashboardApi, listingsApi, uploadsApi, usersApi } from '@/lib/api'
 import type { Conversation, DashboardSummary, Department, Product, ProductStatus } from '@/lib/types'
 import { categoryLabels, departmentLabels, statusLabels } from '@/lib/types'
-import { useAuth } from '@/providers/auth-provider'
+import { useAuth } from '@/core/providers/auth-provider'
 
 const AVATAR_MAX_FILE_SIZE = 5 * 1024 * 1024
 const AVATAR_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp']

@@ -28,7 +28,7 @@ import {
 } from '@/shared/ui/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar'
 import { cn } from '@/lib/utils'
-import { useAuth } from '@/providers/auth-provider'
+import { useAuth } from '@/core/providers/auth-provider'
 
 const navigation = [
   { name: 'Trang chủ', href: '/' },

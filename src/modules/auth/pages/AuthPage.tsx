@@ -17,7 +17,7 @@ import {
 import { toast } from 'sonner'
 import { authApi } from '@/lib/api'
 import { departmentLabels } from '@/lib/types'
-import { useAuth } from '@/providers/auth-provider'
+import { useAuth } from '@/core/providers/auth-provider'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Input } from '@/shared/ui/input'

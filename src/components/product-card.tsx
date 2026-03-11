@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils'
 import { listingsApi } from '@/lib/api'
 import type { Product } from '@/lib/types'
 import { categoryLabels, conditionLabels, departmentLabels, statusLabels } from '@/lib/types'
-import { useAuth } from '@/providers/auth-provider'
+import { useAuth } from '@/core/providers/auth-provider'
 
 interface ProductCardProps {
   product: Product

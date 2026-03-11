@@ -20,6 +20,18 @@ export interface User {
   role?: 'user' | 'admin'
 }
 
+export interface PublicUserProfile {
+  id: string
+  name: string
+  avatar?: string
+  department?: Department
+  studentId: string
+  isVerified: boolean
+  sellerRating: number
+  totalReviews: number
+  createdAt: Date
+}
+
 export interface Product {
   id: string
   title: string
@@ -97,6 +109,12 @@ export interface DashboardSummary {
   saved: number
   conversations: number
   totalViews: number
+}
+
+export interface PublicStats {
+  totalUsers: number
+  totalListings: number
+  totalConversations: number
 }
 
 export interface UploadedImage {
