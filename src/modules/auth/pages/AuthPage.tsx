@@ -43,6 +43,7 @@ function AuthContent() {
   const [isLoading, setIsLoading] = useState(false)
   const [otp, setOtp] = useState('')
   const [pendingEmail, setPendingEmail] = useState('')
+  const [manualOtp, setManualOtp] = useState('')
   const { setSession, user } = useAuth()
 
   const [formData, setFormData] = useState({
@@ -89,9 +90,12 @@ function AuthContent() {
         setPendingEmail(response.email)
         setShowOTP(true)
         if (response.debugOtp) {
+          setManualOtp(response.debugOtp)
           setOtp(response.debugOtp)
-          toast.info(`OTP dev: ${response.debugOtp}`)
+          toast.info('Mã OTP tạm thời đã sẵn sàng để xác minh')
         } else {
+          setManualOtp('')
+          setOtp('')
           toast.info('Mã OTP đã được gửi đến email của bạn')
         }
       }
@@ -126,9 +130,12 @@ function AuthContent() {
     try {
       const response = await authApi.resendOtp({ email: pendingEmail })
       if (response.debugOtp) {
+        setManualOtp(response.debugOtp)
         setOtp(response.debugOtp)
-        toast.info(`OTP dev mới: ${response.debugOtp}`)
+        toast.info('Đã tạo mã OTP mới để bạn xác minh')
       } else {
+        setManualOtp('')
+        setOtp('')
         toast.info('Đã gửi lại OTP')
       }
     } catch (error) {
@@ -150,13 +157,23 @@ function AuthContent() {
               <div>
                 <CardTitle className="text-2xl">Xác minh email</CardTitle>
                 <CardDescription className="mt-2">
-                  Nhập mã OTP 6 số đã được gửi đến
+                  {manualOtp ? 'Dùng mã OTP tạm thời bên dưới để xác minh cho' : 'Nhập mã OTP 6 số đã được gửi đến'}
                   <br />
                   <span className="font-medium text-foreground">{pendingEmail}</span>
                 </CardDescription>
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
+              {manualOtp ? (
+                <div className="rounded-3xl border border-amber-300/70 bg-amber-50 px-5 py-4 text-center shadow-sm">
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-700">Mã OTP tạm thời</p>
+                  <p className="mt-3 font-mono text-3xl font-semibold tracking-[0.5em] text-amber-950">{manualOtp}</p>
+                  <p className="mt-3 text-sm leading-6 text-amber-900/80">
+                    Mã đã được điền sẵn vào ô xác minh. Bạn có thể bấm xác minh ngay hoặc nhập lại thủ công.
+                  </p>
+                </div>
+              ) : null}
+
               <div className="flex justify-center">
                 <InputOTP maxLength={6} value={otp} onChange={setOtp}>
                   <InputOTPGroup>
@@ -182,7 +199,7 @@ function AuthContent() {
               </Button>
 
               <div className="text-center text-sm text-muted-foreground">
-                Không nhận được mã?{' '}
+                {manualOtp ? 'Muốn tạo mã mới?' : 'Không nhận được mã?'}{' '}
                 <button
                   onClick={handleResendOTP}
                   disabled={isLoading}
@@ -192,7 +209,15 @@ function AuthContent() {
                 </button>
               </div>
 
-              <Button variant="ghost" className="w-full gap-2 rounded-full" onClick={() => setShowOTP(false)}>
+              <Button
+                variant="ghost"
+                className="w-full gap-2 rounded-full"
+                onClick={() => {
+                  setShowOTP(false)
+                  setManualOtp('')
+                  setOtp('')
+                }}
+              >
                 <ArrowLeft className="h-4 w-4" />
                 Quay lại
               </Button>

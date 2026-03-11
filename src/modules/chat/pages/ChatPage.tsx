@@ -23,7 +23,7 @@ import { format, formatDistanceToNow, isToday, isYesterday } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import { toast } from 'sonner'
 import { Header } from '@/components/header'
-import { conversationsApi, getAccessToken, uploadsApi, usersApi } from '@/lib/api'
+import { conversationsApi, getAccessToken, getApiBaseUrl, uploadsApi, usersApi } from '@/lib/api'
 import { useAuth } from '@/core/providers/auth-provider'
 import type { Conversation, Message } from '@/lib/types'
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar'
@@ -45,7 +45,6 @@ import { Input } from '@/shared/ui/input'
 import { ScrollArea } from '@/shared/ui/scroll-area'
 import { cn } from '@/lib/utils'
 
-const SOCKET_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3000'
 const FALLBACK_POLL_MS = 6000
 const MESSAGE_ACK_TIMEOUT_MS = 10000
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
@@ -383,9 +382,9 @@ function ChatAreaPanel({
               {otherParticipant?.online
                 ? 'Dang hoat dong'
                 : `Hoat dong ${formatDistanceToNow(otherParticipant?.lastSeen || new Date(), {
-                    addSuffix: true,
-                    locale: vi,
-                  })}`}
+                  addSuffix: true,
+                  locale: vi,
+                })}`}
             </div>
           </div>
         </div>
@@ -895,7 +894,7 @@ function ChatContent() {
       return
     }
 
-    const socket = io(`${SOCKET_BASE_URL}/chat`, {
+    const socket = io(`${getApiBaseUrl()}/chat`, {
       transports: ['websocket'],
       withCredentials: true,
       auth: {

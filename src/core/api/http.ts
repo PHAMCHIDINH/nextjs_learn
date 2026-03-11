@@ -1,4 +1,5 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3000'
+const DEFAULT_LOCAL_API_BASE_URL = 'http://localhost:3000'
+const DEFAULT_PRODUCTION_API_BASE_URL = 'https://api.chonttu.shop'
 const ACCESS_TOKEN_KEY = 'cho_sinh_vien_access_token'
 
 type UnknownRecord = Record<string, unknown>
@@ -111,6 +112,19 @@ export const clearAccessToken = () => {
   window.localStorage.removeItem(ACCESS_TOKEN_KEY)
 }
 
+export const getApiBaseUrl = () => {
+  const configuredBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.trim()
+  if (configuredBaseUrl) {
+    return configuredBaseUrl.replace(/\/$/, '')
+  }
+
+  if (typeof window !== 'undefined' && window.location.hostname.endsWith('chonttu.shop')) {
+    return DEFAULT_PRODUCTION_API_BASE_URL
+  }
+
+  return DEFAULT_LOCAL_API_BASE_URL
+}
+
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
   const { json, formData, auth = true, headers, ...rest } = options
   const token = auth ? getAccessToken() : null
@@ -124,7 +138,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     mergedHeaders.set('Authorization', `Bearer ${token}`)
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(`${getApiBaseUrl()}${path}`, {
     ...rest,
     credentials: 'include',
     headers: mergedHeaders,
