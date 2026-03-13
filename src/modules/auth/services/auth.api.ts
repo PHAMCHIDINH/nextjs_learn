@@ -26,22 +26,20 @@ export const authApi = {
     })
   },
   verifyOtp(payload: { email: string; code: string }) {
-    return apiRequest<{ accessToken: string; user: unknown }>('/auth/verify-otp', {
+    return apiRequest<{ user: unknown }>('/auth/verify-otp', {
       method: 'POST',
       auth: false,
       json: payload,
     }).then((result) => ({
-      accessToken: result.accessToken,
       user: mapUser(result.user),
     }))
   },
   login(payload: { email: string; password: string }) {
-    return apiRequest<{ accessToken: string; user: unknown }>('/auth/login', {
+    return apiRequest<{ user: unknown }>('/auth/login', {
       method: 'POST',
       auth: false,
       json: payload,
     }).then((result) => ({
-      accessToken: result.accessToken,
       user: mapUser(result.user),
     }))
   },

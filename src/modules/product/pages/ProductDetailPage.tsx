@@ -122,11 +122,11 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     try {
       if (product.isSaved) {
         await listingsApi.unsave(product.id)
-        setProduct({ ...product, isSaved: false })
+        setProduct({ ...product, isSaved: false, savedCount: Math.max(0, product.savedCount - 1) })
         toast.success('Đã bỏ lưu sản phẩm')
       } else {
         await listingsApi.save(product.id)
-        setProduct({ ...product, isSaved: true })
+        setProduct({ ...product, isSaved: true, savedCount: product.savedCount + 1 })
         toast.success('Đã lưu sản phẩm')
       }
     } catch {
@@ -321,7 +321,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                     </span>
                     <span className="inline-flex items-center gap-1">
                       <Heart className="h-4 w-4" />
-                      {product.savedBy.length} lượt lưu
+                      {product.savedCount} lượt lưu
                     </span>
                     <span className="inline-flex items-center gap-1">
                       <Clock className="h-4 w-4" />

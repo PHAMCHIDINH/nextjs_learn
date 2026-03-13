@@ -491,7 +491,7 @@ function DashboardContent() {
                               </span>
                               <span className="flex items-center gap-1">
                                 <Heart className="h-3 w-3" />
-                                {product.savedBy.length}
+                                {product.savedCount}
                               </span>
                               <span>{formatDistanceToNow(product.createdAt, { addSuffix: true, locale: vi })}</span>
                             </div>

@@ -1,4 +1,4 @@
-export { ApiError, clearAccessToken, getAccessToken, getApiBaseUrl, setAccessToken } from '@/core/api/http'
+export { ApiError, getApiBaseUrl } from '@/core/api/http'
 
 export { authApi } from '@/modules/auth/services/auth.api'
 export { usersApi } from '@/modules/users/services/users.api'

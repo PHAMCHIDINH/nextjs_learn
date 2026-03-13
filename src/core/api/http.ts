@@ -1,6 +1,5 @@
 const DEFAULT_LOCAL_API_BASE_URL = 'http://localhost:3000'
 const DEFAULT_PRODUCTION_API_BASE_URL = 'https://api.chonttu.shop'
-const ACCESS_TOKEN_KEY = 'cho_sinh_vien_access_token'
 
 type UnknownRecord = Record<string, unknown>
 
@@ -88,30 +87,6 @@ export const toQueryString = (query?: Record<string, ApiQueryValue>) => {
   return text ? `?${text}` : ''
 }
 
-export const getAccessToken = () => {
-  if (typeof window === 'undefined') {
-    return null
-  }
-
-  return window.localStorage.getItem(ACCESS_TOKEN_KEY)
-}
-
-export const setAccessToken = (token: string) => {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  window.localStorage.setItem(ACCESS_TOKEN_KEY, token)
-}
-
-export const clearAccessToken = () => {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  window.localStorage.removeItem(ACCESS_TOKEN_KEY)
-}
-
 export const getApiBaseUrl = () => {
   const configuredBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.trim()
   if (configuredBaseUrl) {
@@ -126,16 +101,10 @@ export const getApiBaseUrl = () => {
 }
 
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
-  const { json, formData, auth = true, headers, ...rest } = options
-  const token = auth ? getAccessToken() : null
-
+  const { json, formData, headers, ...rest } = options
   const mergedHeaders = new Headers(headers ?? {})
   if (json !== undefined) {
     mergedHeaders.set('Content-Type', 'application/json')
-  }
-
-  if (token) {
-    mergedHeaders.set('Authorization', `Bearer ${token}`)
   }
 
   const response = await fetch(`${getApiBaseUrl()}${path}`, {

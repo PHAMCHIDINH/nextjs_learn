@@ -47,7 +47,7 @@ export interface Product {
   createdAt: Date
   updatedAt: Date
   views: number
-  savedBy: string[]
+  savedCount: number
   isSaved?: boolean
   approvalStatus?: 'pending' | 'approved' | 'rejected'
 }

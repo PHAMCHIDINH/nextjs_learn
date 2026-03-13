@@ -23,7 +23,7 @@ import { format, formatDistanceToNow, isToday, isYesterday } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import { toast } from 'sonner'
 import { Header } from '@/components/header'
-import { conversationsApi, getAccessToken, getApiBaseUrl, uploadsApi, usersApi } from '@/lib/api'
+import { conversationsApi, getApiBaseUrl, uploadsApi, usersApi } from '@/lib/api'
 import { useAuth } from '@/core/providers/auth-provider'
 import type { Conversation, Message } from '@/lib/types'
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar'
@@ -888,18 +888,9 @@ function ChatContent() {
       return
     }
 
-    const token = getAccessToken()
-    if (!token) {
-      setIsSocketConnected(false)
-      return
-    }
-
     const socket = io(`${getApiBaseUrl()}/chat`, {
       transports: ['websocket'],
       withCredentials: true,
-      auth: {
-        token,
-      },
       reconnection: true,
       reconnectionAttempts: Infinity,
     })

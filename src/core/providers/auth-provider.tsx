@@ -10,11 +10,9 @@ import {
   type ReactNode,
 } from 'react'
 import type { User } from '@/lib/types'
-import { clearAccessToken, setAccessToken } from '@/core/api/http'
 import { authApi } from '@/modules/auth/services/auth.api'
 
 type SessionInput = {
-  accessToken: string
   user: User
 }
 
@@ -39,13 +37,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return me
     } catch {
       setUser(null)
-      clearAccessToken()
       return null
     }
   }, [])
 
   const setSession = useCallback((payload: SessionInput) => {
-    setAccessToken(payload.accessToken)
     setUser(payload.user)
   }, [])
 
@@ -55,7 +51,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // ignore network/logout errors and clear local state
     } finally {
-      clearAccessToken()
       setUser(null)
     }
   }, [])

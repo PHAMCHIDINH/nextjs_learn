@@ -34,11 +34,13 @@ export function ProductCard({ product, variant = 'default', priority = false }: 
   const router = useRouter()
   const { user } = useAuth()
   const [isSaved, setIsSaved] = useState(Boolean(product.isSaved))
+  const [savedCount, setSavedCount] = useState(product.savedCount)
   const [saving, setSaving] = useState(false)
   const [imageError, setImageError] = useState(false)
 
   useEffect(() => {
-    setIsSaved(Boolean(product.isSaved || (user ? product.savedBy.includes(user.id) : false)))
+    setIsSaved(Boolean(product.isSaved))
+    setSavedCount(product.savedCount)
   }, [product, user])
 
   const formatPrice = (price: number) =>
@@ -67,10 +69,12 @@ export function ProductCard({ product, variant = 'default', priority = false }: 
       if (isSaved) {
         await listingsApi.unsave(product.id)
         setIsSaved(false)
+        setSavedCount((previous) => Math.max(0, previous - 1))
         toast.success('Đã bỏ lưu sản phẩm')
       } else {
         await listingsApi.save(product.id)
         setIsSaved(true)
+        setSavedCount((previous) => previous + 1)
         toast.success('Đã lưu sản phẩm')
       }
     } catch {
@@ -158,7 +162,7 @@ export function ProductCard({ product, variant = 'default', priority = false }: 
                 </span>
                 <span className="inline-flex items-center gap-1">
                   <Heart className="h-3.5 w-3.5" />
-                  {product.savedBy.length} lượt lưu
+                  {savedCount} lượt lưu
                 </span>
                 <span className="inline-flex items-center gap-1">
                   <Clock className="h-3.5 w-3.5" />
@@ -265,7 +269,7 @@ export function ProductCard({ product, variant = 'default', priority = false }: 
           </span>
           <span className="inline-flex items-center gap-1">
             <Heart className="h-3.5 w-3.5" />
-            {product.savedBy.length} lượt lưu
+            {savedCount} lượt lưu
           </span>
           <span className="inline-flex items-center gap-1">
             <Clock className="h-3.5 w-3.5" />

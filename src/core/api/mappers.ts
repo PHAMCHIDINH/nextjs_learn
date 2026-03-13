@@ -134,10 +134,6 @@ export const mapPublicUserProfile = (value: unknown): PublicUserProfile => {
 export const mapProduct = (value: unknown): Product => {
   const source = isRecord(value) ? value : {}
   const images = Array.isArray(source.images) ? source.images.filter((item): item is string => typeof item === 'string') : []
-  const savedBy = Array.isArray(source.savedBy)
-    ? source.savedBy.filter((item): item is string => typeof item === 'string')
-    : []
-
   const seller = mapUser(source.seller)
 
   return {
@@ -155,7 +151,7 @@ export const mapProduct = (value: unknown): Product => {
     createdAt: toDate(source.createdAt),
     updatedAt: toDate(source.updatedAt),
     views: asNumber(source.views),
-    savedBy,
+    savedCount: asNumber(source.savedCount),
     isSaved: source.isSaved === undefined ? undefined : asBoolean(source.isSaved),
     approvalStatus:
       source.approvalStatus === 'pending' || source.approvalStatus === 'approved' || source.approvalStatus === 'rejected'
