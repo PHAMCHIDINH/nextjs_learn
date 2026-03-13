@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { Toaster } from 'sonner'
 import { AuthProvider } from '@/core/providers/auth-provider'
+import { NotificationProvider } from '@/core/providers/notification-provider'
 import './globals.css'
 
 const inter = Inter({ 
@@ -48,7 +49,9 @@ export default function RootLayout({
   return (
     <html lang="vi">
       <body suppressHydrationWarning className={`${inter.variable} font-sans antialiased`}>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <NotificationProvider>{children}</NotificationProvider>
+        </AuthProvider>
         <Toaster position="top-center" richColors />
         <Analytics />
       </body>

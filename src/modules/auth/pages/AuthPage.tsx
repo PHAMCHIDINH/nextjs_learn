@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { zodResolver } from '@hookform/resolvers/zod'
 import {
   ArrowLeft,
   GraduationCap,
@@ -14,12 +15,22 @@ import {
   Sparkles,
   User,
 } from 'lucide-react'
+import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { authApi } from '@/lib/api'
-import { departmentLabels } from '@/lib/types'
+import { departmentLabels, type Department } from '@/lib/types'
+import {
+  loginSchema,
+  otpSchema,
+  registerSchema,
+  type LoginFormValues,
+  type OtpFormValues,
+  type RegisterFormValues,
+} from '@/lib/validation/schemas'
 import { useAuth } from '@/core/providers/auth-provider'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
+import { FieldError } from '@/shared/ui/field-error'
 import { Input } from '@/shared/ui/input'
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/shared/ui/input-otp'
 import { Label } from '@/shared/ui/label'
@@ -41,17 +52,40 @@ function AuthContent() {
   const [isLogin, setIsLogin] = useState(mode === 'login')
   const [showOTP, setShowOTP] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [otp, setOtp] = useState('')
   const [pendingEmail, setPendingEmail] = useState('')
   const [manualOtp, setManualOtp] = useState('')
   const { setSession, user } = useAuth()
 
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    name: '',
-    studentId: '',
-    department: '',
+  const loginForm = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    mode: 'onBlur',
+    reValidateMode: 'onChange',
+    defaultValues: {
+      email: '',
+      password: '',
+    },
+  })
+
+  const registerForm = useForm<RegisterFormValues>({
+    resolver: zodResolver(registerSchema),
+    mode: 'onBlur',
+    reValidateMode: 'onChange',
+    defaultValues: {
+      email: '',
+      password: '',
+      name: '',
+      studentId: '',
+      department: 'cntt',
+    },
+  })
+
+  const otpForm = useForm<OtpFormValues>({
+    resolver: zodResolver(otpSchema),
+    mode: 'onBlur',
+    reValidateMode: 'onChange',
+    defaultValues: {
+      code: '',
+    },
   })
 
   useEffect(() => {
@@ -64,57 +98,66 @@ function AuthContent() {
     }
   }, [router, user])
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault()
+  const activeForm = isLogin ? loginForm : registerForm
+  const activeErrors = isLogin ? loginForm.formState.errors : registerForm.formState.errors
+  const activeTouched = isLogin ? loginForm.formState.touchedFields : registerForm.formState.touchedFields
+  const activeSubmitCount = activeForm.formState.submitCount
+
+  const shouldShowError = (touched?: boolean) => activeSubmitCount > 0 || Boolean(touched)
+
+  const handleLoginSubmit = loginForm.handleSubmit(async (values) => {
     setIsLoading(true)
-
     try {
-      if (isLogin) {
-        const response = await authApi.login({
-          email: formData.email,
-          password: formData.password,
-        })
+      const response = await authApi.login({
+        email: values.email,
+        password: values.password,
+      })
 
-        setSession(response)
-        toast.success('Đăng nhập thành công')
-        router.push('/marketplace')
+      setSession(response)
+      toast.success('Đăng nhập thành công')
+      router.push('/marketplace')
+    } catch (error) {
+      toast.error(getErrorMessage(error))
+    } finally {
+      setIsLoading(false)
+    }
+  })
+
+  const handleRegisterSubmit = registerForm.handleSubmit(async (values) => {
+    setIsLoading(true)
+    try {
+      const response = await authApi.register({
+        email: values.email,
+        password: values.password,
+        name: values.name,
+        studentId: values.studentId,
+        department: values.department,
+      })
+
+      setPendingEmail(response.email)
+      setShowOTP(true)
+      if (response.debugOtp) {
+        setManualOtp(response.debugOtp)
+        otpForm.setValue('code', response.debugOtp)
+        toast.info('Mã OTP tạm thời đã sẵn sàng để xác minh')
       } else {
-        const response = await authApi.register({
-          email: formData.email,
-          password: formData.password,
-          name: formData.name,
-          studentId: formData.studentId,
-          department: formData.department,
-        })
-
-        setPendingEmail(response.email)
-        setShowOTP(true)
-        if (response.debugOtp) {
-          setManualOtp(response.debugOtp)
-          setOtp(response.debugOtp)
-          toast.info('Mã OTP tạm thời đã sẵn sàng để xác minh')
-        } else {
-          setManualOtp('')
-          setOtp('')
-          toast.info('Mã OTP đã được gửi đến email của bạn')
-        }
+        setManualOtp('')
+        otpForm.reset({ code: '' })
+        toast.info('Mã OTP đã được gửi đến email của bạn')
       }
     } catch (error) {
       toast.error(getErrorMessage(error))
     } finally {
       setIsLoading(false)
     }
-  }
+  })
 
-  const handleOTPSubmit = async () => {
-    if (otp.length !== 6) {
-      toast.error('Vui lòng nhập đủ 6 số OTP')
-      return
-    }
+  const handleSubmit = isLogin ? handleLoginSubmit : handleRegisterSubmit
 
+  const handleOTPSubmit = otpForm.handleSubmit(async (values) => {
     setIsLoading(true)
     try {
-      const response = await authApi.verifyOtp({ email: pendingEmail, code: otp })
+      const response = await authApi.verifyOtp({ email: pendingEmail, code: values.code })
       setSession(response)
       toast.success('Xác minh thành công')
       router.push('/marketplace')
@@ -123,7 +166,7 @@ function AuthContent() {
     } finally {
       setIsLoading(false)
     }
-  }
+  })
 
   const handleResendOTP = async () => {
     setIsLoading(true)
@@ -131,11 +174,11 @@ function AuthContent() {
       const response = await authApi.resendOtp({ email: pendingEmail })
       if (response.debugOtp) {
         setManualOtp(response.debugOtp)
-        setOtp(response.debugOtp)
+        otpForm.setValue('code', response.debugOtp, { shouldValidate: otpForm.formState.submitCount > 0 })
         toast.info('Đã tạo mã OTP mới để bạn xác minh')
       } else {
         setManualOtp('')
-        setOtp('')
+        otpForm.reset({ code: '' })
         toast.info('Đã gửi lại OTP')
       }
     } catch (error) {
@@ -144,6 +187,26 @@ function AuthContent() {
       setIsLoading(false)
     }
   }
+
+  const otpError = otpForm.formState.submitCount > 0 ? otpForm.formState.errors.code?.message : undefined
+
+  const nameError = shouldShowError(registerForm.formState.touchedFields.name)
+    ? registerForm.formState.errors.name?.message
+    : undefined
+  const studentIdError = shouldShowError(registerForm.formState.touchedFields.studentId)
+    ? registerForm.formState.errors.studentId?.message
+    : undefined
+  const departmentError = shouldShowError(registerForm.formState.touchedFields.department)
+    ? registerForm.formState.errors.department?.message
+    : undefined
+  const emailError = shouldShowError(activeTouched.email)
+    ? activeErrors.email?.message
+    : undefined
+  const passwordError = shouldShowError(activeTouched.password)
+    ? activeErrors.password?.message
+    : undefined
+
+  const otpValue = otpForm.watch('code')
 
   if (showOTP) {
     return (
@@ -174,29 +237,42 @@ function AuthContent() {
                 </div>
               ) : null}
 
-              <div className="flex justify-center">
-                <InputOTP maxLength={6} value={otp} onChange={setOtp}>
-                  <InputOTPGroup>
-                    <InputOTPSlot index={0} />
-                    <InputOTPSlot index={1} />
-                    <InputOTPSlot index={2} />
-                    <InputOTPSlot index={3} />
-                    <InputOTPSlot index={4} />
-                    <InputOTPSlot index={5} />
-                  </InputOTPGroup>
-                </InputOTP>
-              </div>
+              <form onSubmit={handleOTPSubmit} noValidate>
+                <div className="flex justify-center">
+                  <InputOTP
+                    maxLength={6}
+                    value={otpValue}
+                    onChange={(value) => {
+                      otpForm.setValue('code', value, {
+                        shouldDirty: true,
+                        shouldValidate: otpForm.formState.submitCount > 0,
+                      })
+                    }}
+                    aria-invalid={Boolean(otpError)}
+                  >
+                    <InputOTPGroup>
+                      <InputOTPSlot index={0} />
+                      <InputOTPSlot index={1} />
+                      <InputOTPSlot index={2} />
+                      <InputOTPSlot index={3} />
+                      <InputOTPSlot index={4} />
+                      <InputOTPSlot index={5} />
+                    </InputOTPGroup>
+                  </InputOTP>
+                </div>
+                <FieldError message={otpError} className="mt-2 text-center" />
 
-              <Button onClick={handleOTPSubmit} className="w-full rounded-full" disabled={otp.length !== 6 || isLoading}>
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Đang xác minh...
-                  </>
-                ) : (
-                  'Xác minh'
-                )}
-              </Button>
+                <Button type="submit" className="mt-6 w-full rounded-full" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Đang xác minh...
+                    </>
+                  ) : (
+                    'Xác minh'
+                  )}
+                </Button>
+              </form>
 
               <div className="text-center text-sm text-muted-foreground">
                 {manualOtp ? 'Muốn tạo mã mới?' : 'Không nhận được mã?'}{' '}
@@ -215,7 +291,7 @@ function AuthContent() {
                 onClick={() => {
                   setShowOTP(false)
                   setManualOtp('')
-                  setOtp('')
+                  otpForm.reset({ code: '' })
                 }}
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -301,7 +377,7 @@ function AuthContent() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-4" noValidate>
                 {!isLogin ? (
                   <>
                     <div className="space-y-2">
@@ -311,12 +387,12 @@ function AuthContent() {
                         <Input
                           id="name"
                           placeholder="Nguyễn Văn A"
-                          value={formData.name}
-                          onChange={(event) => setFormData({ ...formData, name: event.target.value })}
+                          {...registerForm.register('name')}
                           className="h-11 rounded-xl pl-10"
-                          required
+                          aria-invalid={Boolean(nameError)}
                         />
                       </div>
+                      <FieldError message={nameError} />
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-2">
@@ -327,32 +403,44 @@ function AuthContent() {
                           <Input
                             id="studentId"
                             placeholder="20210001"
-                            value={formData.studentId}
-                            onChange={(event) => setFormData({ ...formData, studentId: event.target.value })}
+                            {...registerForm.register('studentId')}
                             className="h-11 rounded-xl pl-10"
-                            required
+                            aria-invalid={Boolean(studentIdError)}
                           />
                         </div>
+                        <FieldError message={studentIdError} />
                       </div>
 
                       <div className="space-y-2">
                         <Label htmlFor="department">Khoa / ngành</Label>
-                        <Select
-                          value={formData.department}
-                          onValueChange={(value) => setFormData({ ...formData, department: value })}
-                          required
-                        >
-                          <SelectTrigger className="h-11 rounded-xl">
-                            <SelectValue placeholder="Chọn khoa / ngành" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Object.entries(departmentLabels).map(([key, label]) => (
-                              <SelectItem key={key} value={key}>
-                                {label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <Controller
+                          name="department"
+                          control={registerForm.control}
+                          render={({ field }) => (
+                            <Select
+                              value={field.value}
+                              onValueChange={(value) =>
+                                registerForm.setValue('department', value as Department, {
+                                  shouldDirty: true,
+                                  shouldTouch: true,
+                                  shouldValidate: true,
+                                })
+                              }
+                            >
+                              <SelectTrigger id="department" className="h-11 rounded-xl" aria-invalid={Boolean(departmentError)} onBlur={field.onBlur}>
+                                <SelectValue placeholder="Chọn khoa / ngành" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Object.entries(departmentLabels).map(([key, label]) => (
+                                  <SelectItem key={key} value={key}>
+                                    {label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        />
+                        <FieldError message={departmentError} />
                       </div>
                     </div>
                   </>
@@ -366,12 +454,12 @@ function AuthContent() {
                       id="email"
                       type="email"
                       placeholder="email@student.edu.vn"
-                      value={formData.email}
-                      onChange={(event) => setFormData({ ...formData, email: event.target.value })}
+                      {...(isLogin ? loginForm.register('email') : registerForm.register('email'))}
                       className="h-11 rounded-xl pl-10"
-                      required
+                      aria-invalid={Boolean(emailError)}
                     />
                   </div>
+                  <FieldError message={emailError} />
                 </div>
 
                 <div className="space-y-2">
@@ -382,12 +470,12 @@ function AuthContent() {
                       id="password"
                       type="password"
                       placeholder="Nhập mật khẩu"
-                      value={formData.password}
-                      onChange={(event) => setFormData({ ...formData, password: event.target.value })}
+                      {...(isLogin ? loginForm.register('password') : registerForm.register('password'))}
                       className="h-11 rounded-xl pl-10"
-                      required
+                      aria-invalid={Boolean(passwordError)}
                     />
                   </div>
+                  <FieldError message={passwordError} />
                 </div>
 
                 <Button type="submit" className="h-11 w-full rounded-full" disabled={isLoading}>

@@ -2,11 +2,18 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { Sparkles, Upload } from 'lucide-react'
+import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { AppShell } from '@/components/app-shell'
 import { listingsApi } from '@/lib/api'
-import type { Category, Condition, Department } from '@/lib/types'
+import { toListingWritePayload } from '@/lib/validation/adapters'
+import {
+  listingFormSchema,
+  type ListingFormSchemaInputValues,
+  type ListingFormSchemaValues,
+} from '@/lib/validation/schemas'
 import { useAuth } from '@/core/providers/auth-provider'
 import { Card, CardContent } from '@/shared/ui/card'
 import { ListingEditorForm, ListingEditorPageShell } from '../components/ListingEditorForm'
@@ -22,29 +29,34 @@ export default function CreatePostPage() {
   const { user } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [categories, setCategories] = useState(getDefaultListingCategories())
-  const {
-    formData,
-    setFormData,
-    images,
-    isUploading,
-    dragOver,
-    setDragOver,
-    uploadFiles,
-    handlePickFiles,
-    removeImage,
-    formatCurrency,
-    handlePriceChange,
-  } = useListingEditor({
-    initialValues: {
+  const form = useForm<ListingFormSchemaInputValues, unknown, ListingFormSchemaValues>({
+    resolver: zodResolver(listingFormSchema),
+    mode: 'onBlur',
+    reValidateMode: 'onChange',
+    defaultValues: {
       title: '',
       description: '',
       price: '',
       originalPrice: '',
-      category: '' as Category | '',
-      condition: '' as Condition | '',
-      department: '' as Department | '',
+      category: '',
+      condition: '',
+      department: '',
     },
   })
+  const {
+    images,
+    isUploading,
+    dragOver,
+    uploadError,
+    setDragOver,
+    setUploadError,
+    uploadFiles,
+    handlePickFiles,
+    removeImage,
+    formatCurrency,
+  } = useListingEditor({})
+
+  const formData = form.watch()
 
   useEffect(() => {
     if (!user) {
@@ -60,41 +72,30 @@ export default function CreatePostPage() {
       return
     }
 
-    setFormData((previous) =>
-      previous.department ? previous : { ...previous, department: user.department },
-    )
-  }, [setFormData, user])
+    form.setValue('department', user.department)
+  }, [form, user])
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault()
+  useEffect(() => {
+    if (images.length > 0 && uploadError) {
+      setUploadError(null)
+    }
+  }, [images.length, setUploadError, uploadError])
+
+  const handleSubmit = form.handleSubmit(async (values) => {
+    if (images.length === 0) {
+      setUploadError('Vui lòng tải lên ít nhất 1 ảnh')
+      return
+    }
 
     if (!user) {
       router.push('/auth?mode=login')
       return
     }
 
-    if (images.length === 0) {
-      toast.error('Vui lòng tải lên ít nhất 1 ảnh')
-      return
-    }
-
-    if (!formData.category || !formData.condition || !formData.department) {
-      toast.error('Vui lòng nhập đầy đủ thông tin bắt buộc')
-      return
-    }
-
+    setUploadError(null)
     setIsLoading(true)
     try {
-      await listingsApi.create({
-        title: formData.title,
-        description: formData.description,
-        price: Number(formData.price),
-        originalPrice: formData.originalPrice ? Number(formData.originalPrice) : undefined,
-        category: formData.category,
-        condition: formData.condition,
-        department: formData.department,
-        images: images.map((image) => ({ url: image.url, publicId: image.publicId })),
-      })
+      await listingsApi.create(toListingWritePayload(values, images))
 
       toast.success('Đăng tin thành công, bài đăng đang chờ duyệt')
       router.push('/dashboard?tab=posts')
@@ -103,7 +104,7 @@ export default function CreatePostPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  })
 
   return (
     <AppShell
@@ -124,7 +125,15 @@ export default function CreatePostPage() {
             submitPendingLabel="Đang đăng..."
             submitIcon={Upload}
             formData={formData}
+            control={form.control}
+            register={form.register}
+            setValue={form.setValue}
+            trigger={form.trigger}
+            errors={form.formState.errors}
+            touchedFields={form.formState.touchedFields}
+            submitCount={form.formState.submitCount}
             images={images}
+            imageError={uploadError}
             categories={categories}
             dragOver={dragOver}
             isUploading={isUploading}
@@ -132,12 +141,10 @@ export default function CreatePostPage() {
             fileInputRef={fileInputRef}
             onSubmit={handleSubmit}
             onCancel={() => router.back()}
-            onFormDataChange={setFormData}
             onDragOverChange={setDragOver}
             onPickFiles={handlePickFiles}
             onUploadFiles={uploadFiles}
             onRemoveImage={removeImage}
-            onPriceChange={handlePriceChange}
             formatCurrency={formatCurrency}
             sidebar={
               <>

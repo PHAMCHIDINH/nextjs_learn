@@ -73,6 +73,18 @@ export interface Conversation {
   updatedAt: Date
 }
 
+export type NotificationType = 'NEW_MESSAGE' | 'LISTING_APPROVED' | 'LISTING_REJECTED' | 'NEW_REVIEW'
+
+export interface Notification {
+  id: string
+  type: NotificationType
+  title: string
+  body: string
+  isRead: boolean
+  metadata?: Record<string, unknown>
+  createdAt: Date
+}
+
 export interface Report {
   id: string
   productId: string

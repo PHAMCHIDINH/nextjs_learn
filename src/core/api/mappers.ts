@@ -4,6 +4,7 @@ import type {
   Conversation,
   Department,
   Message,
+  Notification,
   PaginatedResponse,
   Product,
   ProductStatus,
@@ -21,6 +22,12 @@ const STATUSES: ProductStatus[] = ['selling', 'reserved', 'sold']
 const DEPARTMENTS: Department[] = ['cntt', 'kinhtoe', 'marketing', 'ngoaingu', 'luat', 'quanly', 'kythuat']
 const REPORT_STATUSES: Array<Report['status']> = ['pending', 'reviewed', 'resolved']
 const MESSAGE_TYPES: Array<Message['type']> = ['text', 'image']
+const NOTIFICATION_TYPES: Array<Notification['type']> = [
+  'NEW_MESSAGE',
+  'LISTING_APPROVED',
+  'LISTING_REJECTED',
+  'NEW_REVIEW',
+]
 const USER_ROLES: Array<NonNullable<User['role']>> = ['user', 'admin']
 
 const isRecord = (value: unknown): value is UnknownRecord =>
@@ -80,6 +87,9 @@ const normalizeRole = (value: unknown): User['role'] =>
 
 const normalizeMessageType = (value: unknown): Message['type'] =>
   normalizeEnum(value, MESSAGE_TYPES, 'text')
+
+const normalizeNotificationType = (value: unknown): Notification['type'] =>
+  normalizeEnum(value, NOTIFICATION_TYPES, 'NEW_MESSAGE')
 
 const normalizeReportStatus = (value: unknown): Report['status'] =>
   normalizeEnum(value, REPORT_STATUSES, 'pending')
@@ -185,6 +195,19 @@ export const mapConversation = (value: unknown): Conversation => {
     product: source.product ? mapProduct(source.product) : undefined,
     unreadCount: asNumber(source.unreadCount),
     updatedAt: toDate(source.updatedAt),
+  }
+}
+
+export const mapNotification = (value: unknown): Notification => {
+  const source = isRecord(value) ? value : {}
+  return {
+    id: asString(source.id),
+    type: normalizeNotificationType(source.type),
+    title: asString(source.title),
+    body: asString(source.body),
+    isRead: asBoolean(source.isRead),
+    metadata: isRecord(source.metadata) ? source.metadata : undefined,
+    createdAt: toDate(source.createdAt),
   }
 }
 

@@ -4,8 +4,7 @@ import Link from 'next/link'
 import type { ReactNode } from 'react'
 import { AppSidebar } from '@/components/app-sidebar'
 import { cn } from '@/lib/utils'
-import { Separator } from '@/shared/ui/separator'
-import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/shared/ui/sidebar'
+import { SidebarInset, SidebarProvider } from '@/shared/ui/sidebar'
 
 type BreadcrumbItem = {
   label: string
@@ -35,8 +34,6 @@ export function AppShell({
       <SidebarInset>
         <header className="sticky top-0 z-20 flex min-h-16 shrink-0 items-center justify-between gap-4 border-b bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
           <div className="flex min-w-0 items-center gap-3">
-            <SidebarTrigger className="-ml-1" />
-            <Separator orientation="vertical" className="h-4" />
             <div className="min-w-0">
               {breadcrumbs?.length ? (
                 <nav aria-label="Breadcrumb" className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">

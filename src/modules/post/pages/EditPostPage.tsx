@@ -2,11 +2,19 @@
 
 import { use, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { zodResolver } from '@hookform/resolvers/zod'
 import Link from 'next/link'
 import { Info, Loader2, Save } from 'lucide-react'
+import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { AppShell } from '@/components/app-shell'
 import { listingsApi } from '@/lib/api'
+import { toListingWritePayload } from '@/lib/validation/adapters'
+import {
+  listingFormSchema,
+  type ListingFormSchemaInputValues,
+  type ListingFormSchemaValues,
+} from '@/lib/validation/schemas'
 import type { Product } from '@/lib/types'
 import { useAuth } from '@/core/providers/auth-provider'
 import { Button } from '@/shared/ui/button'
@@ -31,21 +39,11 @@ export default function EditPostPage({ params }: EditPostPageProps) {
   const [loadingData, setLoadingData] = useState(true)
   const [product, setProduct] = useState<Product | null>(null)
   const [categories, setCategories] = useState(getDefaultListingCategories())
-  const {
-    formData,
-    setFormData,
-    images,
-    isUploading,
-    dragOver,
-    setDragOver,
-    uploadFiles,
-    handlePickFiles,
-    removeImage,
-    formatCurrency,
-    handlePriceChange,
-    reset,
-  } = useListingEditor({
-    initialValues: {
+  const form = useForm<ListingFormSchemaInputValues, unknown, ListingFormSchemaValues>({
+    resolver: zodResolver(listingFormSchema),
+    mode: 'onBlur',
+    reValidateMode: 'onChange',
+    defaultValues: {
       title: '',
       description: '',
       price: '',
@@ -55,6 +53,20 @@ export default function EditPostPage({ params }: EditPostPageProps) {
       department: '',
     },
   })
+  const {
+    images,
+    isUploading,
+    dragOver,
+    uploadError,
+    setDragOver,
+    setUploadError,
+    uploadFiles,
+    handlePickFiles,
+    removeImage,
+    formatCurrency,
+    reset,
+  } = useListingEditor({})
+  const formData = form.watch()
 
   useEffect(() => {
     if (authLoading) {
@@ -83,18 +95,16 @@ export default function EditPostPage({ params }: EditPostPageProps) {
           return
         }
 
-        reset({
-          nextValues: {
-            title: detail.title,
-            description: detail.description,
-            price: String(detail.price),
-            originalPrice: detail.originalPrice ? String(detail.originalPrice) : '',
-            category: detail.category,
-            condition: detail.condition,
-            department: detail.department,
-          },
-          nextImages: detail.images.map((url) => ({ url })),
+        form.reset({
+          title: detail.title,
+          description: detail.description,
+          price: String(detail.price),
+          originalPrice: detail.originalPrice ? String(detail.originalPrice) : '',
+          category: detail.category,
+          condition: detail.condition,
+          department: detail.department,
         })
+        reset({ nextImages: detail.images.map((url) => ({ url })) })
       } catch (error) {
         toast.error(error instanceof Error ? error.message : 'Không tải dữ liệu bài đăng được')
         router.replace('/dashboard?tab=posts')
@@ -104,40 +114,28 @@ export default function EditPostPage({ params }: EditPostPageProps) {
     }
 
     void run()
-  }, [authLoading, id, reset, router, user])
+  }, [authLoading, form, id, reset, router, user])
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault()
+  useEffect(() => {
+    if (images.length > 0 && uploadError) {
+      setUploadError(null)
+    }
+  }, [images.length, setUploadError, uploadError])
 
+  const handleSubmit = form.handleSubmit(async (values) => {
     if (!product) {
       return
     }
 
-    if (!formData.category || !formData.condition || !formData.department) {
-      toast.error('Vui lòng nhập đầy đủ thông tin bắt buộc')
-      return
-    }
-
     if (images.length === 0) {
-      toast.error('Vui lòng giữ lại ít nhất 1 ảnh cho bài đăng')
+      setUploadError('Vui lòng giữ lại ít nhất 1 ảnh cho bài đăng')
       return
     }
 
+    setUploadError(null)
     setIsSaving(true)
     try {
-      await listingsApi.update(product.id, {
-        title: formData.title,
-        description: formData.description,
-        price: Number(formData.price),
-        originalPrice: formData.originalPrice ? Number(formData.originalPrice) : undefined,
-        category: formData.category,
-        condition: formData.condition,
-        department: formData.department,
-        images: images.map((image) => ({
-          url: image.url,
-          publicId: image.publicId,
-        })),
-      })
+      await listingsApi.update(product.id, toListingWritePayload(values, images))
       toast.success('Cập nhật bài đăng thành công')
       router.push('/dashboard?tab=posts')
     } catch (error) {
@@ -145,7 +143,7 @@ export default function EditPostPage({ params }: EditPostPageProps) {
     } finally {
       setIsSaving(false)
     }
-  }
+  })
 
   if (authLoading || loadingData) {
     return (
@@ -195,7 +193,15 @@ export default function EditPostPage({ params }: EditPostPageProps) {
             submitPendingLabel="Đang lưu..."
             submitIcon={Save}
             formData={formData}
+            control={form.control}
+            register={form.register}
+            setValue={form.setValue}
+            trigger={form.trigger}
+            errors={form.formState.errors}
+            touchedFields={form.formState.touchedFields}
+            submitCount={form.formState.submitCount}
             images={images}
+            imageError={uploadError}
             categories={categories}
             dragOver={dragOver}
             isUploading={isUploading}
@@ -203,12 +209,10 @@ export default function EditPostPage({ params }: EditPostPageProps) {
             fileInputRef={fileInputRef}
             onSubmit={handleSubmit}
             onCancel={() => router.back()}
-            onFormDataChange={setFormData}
             onDragOverChange={setDragOver}
             onPickFiles={handlePickFiles}
             onUploadFiles={uploadFiles}
             onRemoveImage={removeImage}
-            onPriceChange={handlePriceChange}
             formatCurrency={formatCurrency}
             sidebar={
               <>

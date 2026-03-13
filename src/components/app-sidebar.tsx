@@ -15,7 +15,9 @@ import {
 } from 'lucide-react'
 import { departmentLabels } from '@/lib/types'
 import { useAuth } from '@/core/providers/auth-provider'
+import { useNotification } from '@/core/providers/notification-provider'
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar'
+import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import {
   Sidebar,
@@ -52,6 +54,7 @@ const adminItems: NavItem[] = [{ href: '/admin', label: 'Admin panel', icon: Shi
 export function AppSidebar() {
   const pathname = usePathname()
   const { logout, user } = useAuth()
+  const { chatUnreadCount } = useNotification()
 
   const studentItems = user
     ? [...baseStudentItems, { href: `/users/${user.id}`, label: 'Hồ sơ của tôi', icon: User }]
@@ -106,6 +109,11 @@ export function AppSidebar() {
                       <Link href={item.href}>
                         <Icon className="size-4" />
                         <span>{item.label}</span>
+                        {item.href === '/chat' && chatUnreadCount > 0 ? (
+                          <Badge variant="destructive" className="ml-auto h-5 min-w-5 rounded-full px-1 text-[10px]">
+                            {chatUnreadCount > 99 ? '99+' : chatUnreadCount}
+                          </Badge>
+                        ) : null}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

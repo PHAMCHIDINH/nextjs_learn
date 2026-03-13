@@ -24,6 +24,7 @@ import { vi } from 'date-fns/locale'
 import { toast } from 'sonner'
 import { AppShell } from '@/components/app-shell'
 import { conversationsApi, getApiBaseUrl, uploadsApi, usersApi } from '@/lib/api'
+import { chatImageFileSchema } from '@/lib/validation/schemas'
 import { useAuth } from '@/core/providers/auth-provider'
 import { authApi } from '@/modules/auth/services/auth.api'
 import type { Conversation, Message } from '@/lib/types'
@@ -31,6 +32,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent } from '@/shared/ui/card'
+import { FieldError } from '@/shared/ui/field-error'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,8 +50,6 @@ import { cn, formatPrice } from '@/lib/utils'
 
 const FALLBACK_POLL_MS = 6000
 const MESSAGE_ACK_TIMEOUT_MS = 10000
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024
-const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 const MUTED_CONVERSATIONS_KEY = 'cho_sinh_vien_muted_conversations'
 
 type DeliveryStatus = 'sending' | 'sent' | 'failed'
@@ -88,6 +88,7 @@ type ChatAreaPanelProps = {
   draftText: string
   hasPendingImage: boolean
   pendingImagePreview: string | null
+  composerError: string | null
   isSending: boolean
   isUploadingImage: boolean
   onDraftTextChange: (value: string) => void
@@ -327,6 +328,7 @@ function ChatAreaPanel({
   draftText,
   hasPendingImage,
   pendingImagePreview,
+  composerError,
   isSending,
   isUploadingImage,
   onDraftTextChange,
@@ -561,6 +563,7 @@ function ChatAreaPanel({
               }
             }}
             className="border-none bg-transparent shadow-none focus-visible:ring-0"
+            aria-invalid={Boolean(composerError)}
           />
           <Button
             size="icon"
@@ -571,6 +574,7 @@ function ChatAreaPanel({
             {isSending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
           </Button>
         </div>
+        <FieldError message={composerError ?? undefined} className="mt-2 px-3" />
       </div>
     </div>
   )
@@ -592,6 +596,7 @@ function ChatContent() {
   const [draftText, setDraftText] = useState('')
   const [pendingImageFile, setPendingImageFile] = useState<File | null>(null)
   const [pendingImagePreview, setPendingImagePreview] = useState<string | null>(null)
+  const [composerError, setComposerError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [isSending, setIsSending] = useState(false)
@@ -624,6 +629,7 @@ function ChatContent() {
 
   const clearPendingImage = useCallback(() => {
     setPendingImageFile(null)
+    setComposerError(null)
     setPendingImagePreview((previous) => {
       if (previous) {
         URL.revokeObjectURL(previous)
@@ -1034,6 +1040,10 @@ function ChatContent() {
   }, [messages, selectedConversationId])
 
   useEffect(() => {
+    setComposerError(null)
+  }, [selectedConversationId])
+
+  useEffect(() => {
     const pendingTimeouts = pendingTimeoutsRef.current
 
     return () => {
@@ -1050,16 +1060,13 @@ function ChatContent() {
       return
     }
 
-    if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
-      toast.error('Chỉ chấp nhận JPG, PNG, WEBP')
+    const parsed = chatImageFileSchema.safeParse(file)
+    if (!parsed.success) {
+      setComposerError(parsed.error.issues[0]?.message ?? 'Ảnh tải lên không hợp lệ')
       return
     }
 
-    if (file.size > MAX_IMAGE_SIZE) {
-      toast.error('Mỗi ảnh tối đa 5MB')
-      return
-    }
-
+    setComposerError(null)
     setPendingImageFile(file)
     setPendingImagePreview((previous) => {
       if (previous) {
@@ -1229,9 +1236,15 @@ function ChatContent() {
               draftText={draftText}
               hasPendingImage={Boolean(pendingImageFile)}
               pendingImagePreview={pendingImagePreview}
+              composerError={composerError}
               isSending={isSending}
               isUploadingImage={isUploadingImage}
-              onDraftTextChange={setDraftText}
+              onDraftTextChange={(value) => {
+                setDraftText(value)
+                if (composerError) {
+                  setComposerError(null)
+                }
+              }}
               onSendMessage={handleSendMessage}
               onPickImage={() => fileInputRef.current?.click()}
               onRemovePendingImage={clearPendingImage}
@@ -1270,9 +1283,15 @@ function ChatContent() {
               draftText={draftText}
               hasPendingImage={Boolean(pendingImageFile)}
               pendingImagePreview={pendingImagePreview}
+              composerError={composerError}
               isSending={isSending}
               isUploadingImage={isUploadingImage}
-              onDraftTextChange={setDraftText}
+              onDraftTextChange={(value) => {
+                setDraftText(value)
+                if (composerError) {
+                  setComposerError(null)
+                }
+              }}
               onSendMessage={handleSendMessage}
               onPickImage={() => fileInputRef.current?.click()}
               onRemovePendingImage={clearPendingImage}

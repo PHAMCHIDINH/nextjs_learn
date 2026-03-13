@@ -2,9 +2,8 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
-  Bell,
   Heart,
   LogOut,
   Menu,
@@ -29,19 +28,29 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/core/providers/auth-provider'
-
-const navigation = [
-  { name: 'Trang chủ', href: '/' },
-  { name: 'Chợ', href: '/marketplace' },
-  { name: 'Tin nhắn', href: '/chat', badge: 2 },
-]
+import { useNotification } from '@/core/providers/notification-provider'
+import { NotificationBell } from '@/components/notification-bell'
 
 export function Header() {
   const pathname = usePathname()
   const router = useRouter()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { user, logout } = useAuth()
+  const { chatUnreadCount } = useNotification()
   const isLoggedIn = Boolean(user)
+
+  const navigation = useMemo(
+    () => [
+      { name: 'Home', href: '/' },
+      { name: 'Marketplace', href: '/marketplace' },
+      {
+        name: 'Messages',
+        href: '/chat',
+        badge: chatUnreadCount > 0 ? chatUnreadCount : undefined,
+      },
+    ],
+    [chatUnreadCount],
+  )
 
   const handleLogout = async () => {
     await logout()
@@ -56,7 +65,7 @@ export function Header() {
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
               <ShoppingBag className="h-5 w-5 text-primary-foreground" />
             </div>
-            <span className="text-lg font-bold text-foreground">Chợ Sinh Viên</span>
+            <span className="text-lg font-bold text-foreground">Cho Sinh Vien</span>
           </Link>
         </div>
 
@@ -90,24 +99,21 @@ export function Header() {
                   <Search className="h-5 w-5" />
                 </Button>
               </Link>
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="h-5 w-5" />
-                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
-                  3
-                </span>
-              </Button>
+              <NotificationBell />
               <Link href="/chat">
                 <Button variant="ghost" size="icon" className="relative">
                   <MessageSquare className="h-5 w-5" />
-                  <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
-                    2
-                  </span>
+                  {chatUnreadCount > 0 ? (
+                    <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+                      {chatUnreadCount > 99 ? '99+' : chatUnreadCount}
+                    </span>
+                  ) : null}
                 </Button>
               </Link>
               <Link href="/post/new">
                 <Button size="sm" className="gap-2">
                   <Plus className="h-4 w-4" />
-                  Đăng tin
+                  Dang tin
                 </Button>
               </Link>
               <DropdownMenu>
@@ -128,7 +134,7 @@ export function Header() {
                       <AvatarFallback>{user?.name?.charAt(0) ?? 'U'}</AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col space-y-0.5">
-                      <p className="text-sm font-medium">{user?.name ?? 'Sinh viên'}</p>
+                      <p className="text-sm font-medium">{user?.name ?? 'Student'}</p>
                       <p className="text-xs text-muted-foreground">{user?.studentId ?? ''}</p>
                     </div>
                   </div>
@@ -142,13 +148,13 @@ export function Header() {
                   <DropdownMenuItem asChild>
                     <Link href="/dashboard?tab=posts" className="flex cursor-pointer items-center gap-2">
                       <Package className="h-4 w-4" />
-                      Bài đăng của tôi
+                      Bai dang cua toi
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link href="/dashboard?tab=saved" className="flex cursor-pointer items-center gap-2">
                       <Heart className="h-4 w-4" />
-                      Đã lưu
+                      Da luu
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
@@ -168,7 +174,7 @@ export function Header() {
                     onClick={handleLogout}
                   >
                     <LogOut className="h-4 w-4" />
-                    Đăng xuất
+                    Dang xuat
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -176,10 +182,10 @@ export function Header() {
           ) : (
             <>
               <Link href="/auth">
-                <Button variant="ghost">Đăng nhập</Button>
+                <Button variant="ghost">Dang nhap</Button>
               </Link>
               <Link href="/auth?mode=register">
-                <Button>Đăng ký</Button>
+                <Button>Dang ky</Button>
               </Link>
             </>
           )}
@@ -227,7 +233,7 @@ export function Header() {
                   className="flex items-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-medium text-primary-foreground"
                 >
                   <Plus className="h-4 w-4" />
-                  Đăng tin mới
+                  Dang tin moi
                 </Link>
                 <Link
                   href="/dashboard"
@@ -255,18 +261,18 @@ export function Header() {
                   className="flex items-center gap-2 rounded-lg px-4 py-3 text-left text-sm font-medium text-destructive hover:bg-muted"
                 >
                   <LogOut className="h-4 w-4" />
-                  Đăng xuất
+                  Dang xuat
                 </button>
               </>
             ) : (
               <div className="flex flex-col gap-2">
                 <Link href="/auth" onClick={() => setMobileMenuOpen(false)}>
                   <Button variant="outline" className="w-full">
-                    Đăng nhập
+                    Dang nhap
                   </Button>
                 </Link>
                 <Link href="/auth?mode=register" onClick={() => setMobileMenuOpen(false)}>
-                  <Button className="w-full">Đăng ký</Button>
+                  <Button className="w-full">Dang ky</Button>
                 </Link>
               </div>
             )}

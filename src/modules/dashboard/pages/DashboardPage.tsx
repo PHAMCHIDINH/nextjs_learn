@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { zodResolver } from '@hookform/resolvers/zod'
 import Link from 'next/link'
 import Image from 'next/image'
 import {
@@ -25,6 +26,7 @@ import {
 } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
 import { vi } from 'date-fns/locale'
+import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { AppShell } from '@/components/app-shell'
 import { ProductCard } from '@/components/product-card'
@@ -34,17 +36,19 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/ui/dropdown-menu'
+import { FieldError } from '@/shared/ui/field-error'
 import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/shared/ui/sheet'
 import { cn, formatPrice } from '@/lib/utils'
+import { toProfileUpdatePayload } from '@/lib/validation/adapters'
+import { avatarFileSchema, profileFormSchema, type ProfileFormValues } from '@/lib/validation/schemas'
 import { conversationsApi, dashboardApi, listingsApi, uploadsApi, usersApi } from '@/lib/api'
 import type { Conversation, DashboardSummary, Department, Product, ProductStatus } from '@/lib/types'
 import { categoryLabels, departmentLabels, statusLabels } from '@/lib/types'
 import { useAuth } from '@/core/providers/auth-provider'
 
-const AVATAR_MAX_FILE_SIZE = 5 * 1024 * 1024
 const AVATAR_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 
 const revokeBlobUrl = (value?: string | null) => {
@@ -65,11 +69,19 @@ function DashboardContent() {
   const [loading, setLoading] = useState(true)
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
-  const [profileName, setProfileName] = useState('')
-  const [profileDepartment, setProfileDepartment] = useState<Department>('cntt')
+  const profileForm = useForm<ProfileFormValues>({
+    resolver: zodResolver(profileFormSchema),
+    mode: 'onBlur',
+    reValidateMode: 'onChange',
+    defaultValues: {
+      name: '',
+      department: 'cntt',
+    },
+  })
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarRemoved, setAvatarRemoved] = useState(false)
+  const [avatarError, setAvatarError] = useState<string | null>(null)
   const avatarInputRef = useRef<HTMLInputElement | null>(null)
 
   const loadDashboard = async () => {
@@ -115,11 +127,14 @@ function DashboardContent() {
     }
 
     revokeBlobUrl(avatarPreview)
-    setProfileName(user.name)
-    setProfileDepartment(user.department)
+    profileForm.reset({
+      name: user.name,
+      department: user.department,
+    })
     setAvatarPreview(user.avatar ?? null)
     setAvatarFile(null)
     setAvatarRemoved(false)
+    setAvatarError(null)
     if (avatarInputRef.current) {
       avatarInputRef.current.value = ''
     }
@@ -143,17 +158,13 @@ function DashboardContent() {
       return
     }
 
-    if (!AVATAR_MIME_TYPES.includes(file.type)) {
-      toast.error('Avatar chỉ hỗ trợ JPG, PNG, WEBP')
+    const parsed = avatarFileSchema.safeParse(file)
+    if (!parsed.success) {
+      setAvatarError(parsed.error.issues[0]?.message ?? 'Avatar không hợp lệ')
       event.target.value = ''
       return
     }
-
-    if (file.size > AVATAR_MAX_FILE_SIZE) {
-      toast.error('Avatar tối đa 5MB')
-      event.target.value = ''
-      return
-    }
+    setAvatarError(null)
 
     const previewUrl = URL.createObjectURL(file)
     revokeBlobUrl(avatarPreview)
@@ -167,27 +178,26 @@ function DashboardContent() {
     setAvatarPreview(null)
     setAvatarFile(null)
     setAvatarRemoved(true)
+    setAvatarError(null)
     if (avatarInputRef.current) {
       avatarInputRef.current.value = ''
     }
   }
 
+  const profileValues = profileForm.watch()
   const hasProfileChanges =
     !!user &&
-    (profileName.trim() !== user.name ||
-      profileDepartment !== user.department ||
+    (profileValues.name.trim() !== user.name ||
+      profileValues.department !== user.department ||
       avatarFile !== null ||
       (avatarRemoved && Boolean(user.avatar)))
 
-  const handleSaveProfile = async (event: React.FormEvent) => {
-    event.preventDefault()
+  const handleSaveProfile = profileForm.handleSubmit(async (values) => {
     if (!user) {
       return
     }
 
-    const trimmedName = profileName.trim()
-    if (trimmedName.length < 2) {
-      toast.error('Tên cần ít nhất 2 ký tự')
+    if (avatarError) {
       return
     }
 
@@ -195,15 +205,12 @@ function DashboardContent() {
       name?: string
       department?: Department
       avatar?: { url: string; publicId?: string } | null
-    } = {}
-
-    if (trimmedName !== user.name) {
-      payload.name = trimmedName
-    }
-
-    if (profileDepartment !== user.department) {
-      payload.department = profileDepartment
-    }
+    } = toProfileUpdatePayload({
+      currentName: user.name,
+      currentDepartment: user.department,
+      nextName: values.name,
+      nextDepartment: values.department,
+    })
 
     setIsSavingProfile(true)
     try {
@@ -230,6 +237,7 @@ function DashboardContent() {
       }
       setAvatarFile(null)
       setAvatarRemoved(false)
+      setAvatarError(null)
       setIsEditProfileOpen(false)
       toast.success('Đã cập nhật hồ sơ')
     } catch (error) {
@@ -237,7 +245,7 @@ function DashboardContent() {
     } finally {
       setIsSavingProfile(false)
     }
-  }
+  })
 
   const recentConversations = useMemo(() => conversations.slice(0, 3), [conversations])
 
@@ -635,14 +643,14 @@ function DashboardContent() {
             <SheetDescription>Cập nhật thông tin hiển thị và ảnh đại diện của bạn.</SheetDescription>
           </SheetHeader>
 
-          <form className="flex h-[calc(100dvh-84px)] flex-col" onSubmit={(event) => void handleSaveProfile(event)}>
+          <form className="flex h-[calc(100dvh-84px)] flex-col" onSubmit={handleSaveProfile} noValidate>
             <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">
               <div className="rounded-2xl border border-border/70 bg-gradient-to-br from-primary/5 via-background to-background p-4">
                 <Label className="text-sm font-medium">Ảnh đại diện</Label>
                 <div className="mt-3 flex items-center gap-4">
                   <Avatar className="h-20 w-20 ring-4 ring-primary/15">
-                    <AvatarImage src={avatarPreview ?? undefined} alt={profileName || user.name} />
-                    <AvatarFallback className="text-xl">{(profileName || user.name).charAt(0)}</AvatarFallback>
+                    <AvatarImage src={avatarPreview ?? undefined} alt={profileValues.name || user.name} />
+                    <AvatarFallback className="text-xl">{(profileValues.name || user.name).charAt(0)}</AvatarFallback>
                   </Avatar>
 
                   <div className="flex-1 space-y-3">
@@ -672,6 +680,7 @@ function DashboardContent() {
                       JPG, PNG hoặc WEBP. Tối đa 5MB.
                       {avatarFile ? ` Đã chọn: ${avatarFile.name}` : ''}
                     </p>
+                    <FieldError message={avatarError ?? undefined} />
                   </div>
                 </div>
               </div>
@@ -680,31 +689,68 @@ function DashboardContent() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="profile-name">Tên hiển thị</Label>
-                    <span className="text-xs text-muted-foreground">{profileName.length}/100</span>
+                    <span className="text-xs text-muted-foreground">{profileValues.name.length}/100</span>
                   </div>
                   <Input
                     id="profile-name"
-                    value={profileName}
-                    minLength={2}
+                    {...profileForm.register('name')}
                     maxLength={100}
-                    onChange={(event) => setProfileName(event.target.value)}
+                    aria-invalid={Boolean(
+                      (profileForm.formState.submitCount > 0 || profileForm.formState.touchedFields.name) &&
+                        profileForm.formState.errors.name,
+                    )}
+                  />
+                  <FieldError
+                    message={
+                      profileForm.formState.submitCount > 0 || profileForm.formState.touchedFields.name
+                        ? profileForm.formState.errors.name?.message
+                        : undefined
+                    }
                   />
                 </div>
 
                 <div className="space-y-2">
                   <Label>Ngành học</Label>
-                  <Select value={profileDepartment} onValueChange={(value) => setProfileDepartment(value as Department)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(departmentLabels).map(([key, label]) => (
-                        <SelectItem key={key} value={key}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Controller
+                    name="department"
+                    control={profileForm.control}
+                    render={({ field }) => (
+                      <Select
+                        value={field.value}
+                        onValueChange={(value) =>
+                          profileForm.setValue('department', value as Department, {
+                            shouldDirty: true,
+                            shouldTouch: true,
+                            shouldValidate: true,
+                          })
+                        }
+                      >
+                        <SelectTrigger
+                          aria-invalid={Boolean(
+                            (profileForm.formState.submitCount > 0 || profileForm.formState.touchedFields.department) &&
+                              profileForm.formState.errors.department,
+                          )}
+                          onBlur={field.onBlur}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(departmentLabels).map(([key, label]) => (
+                            <SelectItem key={key} value={key}>
+                              {label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  <FieldError
+                    message={
+                      profileForm.formState.submitCount > 0 || profileForm.formState.touchedFields.department
+                        ? profileForm.formState.errors.department?.message
+                        : undefined
+                    }
+                  />
                 </div>
               </div>
 
