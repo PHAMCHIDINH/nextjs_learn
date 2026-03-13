@@ -46,6 +46,9 @@ export const authApi = {
   me() {
     return apiRequest<unknown>('/auth/me').then(mapUser)
   },
+  createSocketToken() {
+    return apiRequest<{ token: string }>('/auth/socket-token', { method: 'POST' })
+  },
   logout() {
     return apiRequest<{ message: string }>('/auth/logout', { method: 'POST' })
   },

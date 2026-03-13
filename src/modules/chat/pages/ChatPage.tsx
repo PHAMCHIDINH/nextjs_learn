@@ -25,6 +25,7 @@ import { toast } from 'sonner'
 import { Header } from '@/components/header'
 import { conversationsApi, getApiBaseUrl, uploadsApi, usersApi } from '@/lib/api'
 import { useAuth } from '@/core/providers/auth-provider'
+import { authApi } from '@/modules/auth/services/auth.api'
 import type { Conversation, Message } from '@/lib/types'
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar'
 import { Badge } from '@/shared/ui/badge'
@@ -889,10 +890,17 @@ function ChatContent() {
     }
 
     const socket = io(`${getApiBaseUrl()}/chat`, {
+      autoConnect: false,
       transports: ['websocket'],
       withCredentials: true,
       reconnection: true,
       reconnectionAttempts: Infinity,
+      auth: (cb) => {
+        void authApi
+          .createSocketToken()
+          .then(({ token }) => cb({ token }))
+          .catch(() => cb({}))
+      },
     })
 
     socketRef.current = socket
@@ -995,6 +1003,8 @@ function ChatContent() {
 
       toast.error(message)
     })
+
+    socket.connect()
 
     return () => {
       setIsSocketConnected(false)
