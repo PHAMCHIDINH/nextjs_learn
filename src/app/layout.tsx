@@ -4,6 +4,8 @@ import { Analytics } from '@vercel/analytics/next'
 import { Toaster } from 'sonner'
 import { AuthProvider } from '@/core/providers/auth-provider'
 import { NotificationProvider } from '@/core/providers/notification-provider'
+import { QueryProvider } from '@/core/query/query-provider'
+import { ChatUiStoreProvider } from '@/core/state/chat-ui-store'
 import './globals.css'
 
 const inter = Inter({ 
@@ -49,9 +51,13 @@ export default function RootLayout({
   return (
     <html lang="vi">
       <body suppressHydrationWarning className={`${inter.variable} font-sans antialiased`}>
-        <AuthProvider>
-          <NotificationProvider>{children}</NotificationProvider>
-        </AuthProvider>
+        <QueryProvider>
+          <AuthProvider>
+            <NotificationProvider>
+              <ChatUiStoreProvider>{children}</ChatUiStoreProvider>
+            </NotificationProvider>
+          </AuthProvider>
+        </QueryProvider>
         <Toaster position="top-center" richColors />
         <Analytics />
       </body>

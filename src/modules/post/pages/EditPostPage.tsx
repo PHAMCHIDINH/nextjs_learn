@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { zodResolver } from '@hookform/resolvers/zod'
 import Link from 'next/link'
 import { Info, Loader2, Save } from 'lucide-react'
-import { useForm } from 'react-hook-form'
+import { FormProvider, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { AppShell } from '@/components/app-shell'
 import { listingsApi } from '@/lib/api'
@@ -66,8 +66,6 @@ export default function EditPostPage({ params }: EditPostPageProps) {
     formatCurrency,
     reset,
   } = useListingEditor({})
-  const formData = form.watch()
-
   useEffect(() => {
     if (authLoading) {
       return
@@ -185,60 +183,54 @@ export default function EditPostPage({ params }: EditPostPageProps) {
       contentClassName="max-w-none px-0 py-0"
     >
       <div className="bg-[radial-gradient(circle_at_top_right,_rgba(34,197,94,0.12),_transparent_24%),linear-gradient(180deg,_rgba(250,250,249,1)_0%,_rgba(244,244,245,1)_100%)]">
-        <ListingEditorPageShell backHref="/dashboard?tab=posts">
-          <ListingEditorForm
-            imageTitle="Hình ảnh bài đăng"
-            imageDescription="Thêm, xóa và sắp xếp lại bộ ảnh trước khi lưu thay đổi."
-            submitLabel="Lưu thay đổi"
-            submitPendingLabel="Đang lưu..."
-            submitIcon={Save}
-            formData={formData}
-            control={form.control}
-            register={form.register}
-            setValue={form.setValue}
-            trigger={form.trigger}
-            errors={form.formState.errors}
-            touchedFields={form.formState.touchedFields}
-            submitCount={form.formState.submitCount}
-            images={images}
-            imageError={uploadError}
-            categories={categories}
-            dragOver={dragOver}
-            isUploading={isUploading}
-            isSubmitting={isSaving}
-            fileInputRef={fileInputRef}
-            onSubmit={handleSubmit}
-            onCancel={() => router.back()}
-            onDragOverChange={setDragOver}
-            onPickFiles={handlePickFiles}
-            onUploadFiles={uploadFiles}
-            onRemoveImage={removeImage}
-            formatCurrency={formatCurrency}
-            sidebar={
-              <>
-                <Card className="border-primary/20 bg-primary/5 shadow-sm">
-                  <CardContent className="p-5">
-                    <h3 className="font-medium">Lưu ý</h3>
-                    <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-                      <li>- Bài đăng sửa xong vẫn theo trạng thái kiểm duyệt hiện tại.</li>
-                      <li>- Ảnh đầu tiên sẽ được dùng làm ảnh bìa.</li>
-                      <li>- Bạn có thể đổi trạng thái bán ngay trong Dashboard.</li>
-                    </ul>
-                  </CardContent>
-                </Card>
+        <FormProvider {...form}>
+          <ListingEditorPageShell backHref="/dashboard?tab=posts">
+            <ListingEditorForm
+              imageTitle="Hình ảnh bài đăng"
+              imageDescription="Thêm, xóa và sắp xếp lại bộ ảnh trước khi lưu thay đổi."
+              submitLabel="Lưu thay đổi"
+              submitPendingLabel="Đang lưu..."
+              submitIcon={Save}
+              images={images}
+              imageError={uploadError}
+              categories={categories}
+              dragOver={dragOver}
+              isUploading={isUploading}
+              isSubmitting={isSaving}
+              fileInputRef={fileInputRef}
+              onSubmit={handleSubmit}
+              onCancel={() => router.back()}
+              onDragOverChange={setDragOver}
+              onPickFiles={handlePickFiles}
+              onUploadFiles={uploadFiles}
+              onRemoveImage={removeImage}
+              formatCurrency={formatCurrency}
+              sidebar={
+                <>
+                  <Card className="border-primary/20 bg-primary/5 shadow-sm">
+                    <CardContent className="p-5">
+                      <h3 className="font-medium">Lưu ý</h3>
+                      <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+                        <li>- Bài đăng sửa xong vẫn theo trạng thái kiểm duyệt hiện tại.</li>
+                        <li>- Ảnh đầu tiên sẽ được dùng làm ảnh bìa.</li>
+                        <li>- Bạn có thể đổi trạng thái bán ngay trong Dashboard.</li>
+                      </ul>
+                    </CardContent>
+                  </Card>
 
-                <Card className="border-border/70 bg-white/90 shadow-sm">
-                  <CardContent className="p-5">
-                    <p className="flex items-start gap-2 text-sm text-muted-foreground">
-                      <Info className="mt-0.5 h-4 w-4 shrink-0" />
-                      Có thể thay đổi thông tin và bộ ảnh trong cùng một lần cập nhật.
-                    </p>
-                  </CardContent>
-                </Card>
-              </>
-            }
-          />
-        </ListingEditorPageShell>
+                  <Card className="border-border/70 bg-white/90 shadow-sm">
+                    <CardContent className="p-5">
+                      <p className="flex items-start gap-2 text-sm text-muted-foreground">
+                        <Info className="mt-0.5 h-4 w-4 shrink-0" />
+                        Có thể thay đổi thông tin và bộ ảnh trong cùng một lần cập nhật.
+                      </p>
+                    </CardContent>
+                  </Card>
+                </>
+              }
+            />
+          </ListingEditorPageShell>
+        </FormProvider>
       </div>
     </AppShell>
   )

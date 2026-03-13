@@ -15,10 +15,10 @@ import {
   Sparkles,
   User,
 } from 'lucide-react'
-import { Controller, useForm } from 'react-hook-form'
+import { FormProvider, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { authApi } from '@/lib/api'
-import { departmentLabels, type Department } from '@/lib/types'
+import { departmentLabels } from '@/lib/types'
 import {
   loginSchema,
   otpSchema,
@@ -31,10 +31,10 @@ import { useAuth } from '@/core/providers/auth-provider'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { FieldError } from '@/shared/ui/field-error'
+import { RHFInputOTP, RHFSelect } from '@/shared/ui/form'
 import { Input } from '@/shared/ui/input'
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/shared/ui/input-otp'
+import { InputOTPGroup, InputOTPSlot } from '@/shared/ui/input-otp'
 import { Label } from '@/shared/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
 
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error) {
@@ -206,8 +206,6 @@ function AuthContent() {
     ? activeErrors.password?.message
     : undefined
 
-  const otpValue = otpForm.watch('code')
-
   if (showOTP) {
     return (
       <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(34,197,94,0.16),_transparent_24%),linear-gradient(180deg,_rgba(250,250,249,1)_0%,_rgba(244,244,245,1)_100%)] px-4 py-10">
@@ -237,42 +235,34 @@ function AuthContent() {
                 </div>
               ) : null}
 
-              <form onSubmit={handleOTPSubmit} noValidate>
-                <div className="flex justify-center">
-                  <InputOTP
-                    maxLength={6}
-                    value={otpValue}
-                    onChange={(value) => {
-                      otpForm.setValue('code', value, {
-                        shouldDirty: true,
-                        shouldValidate: otpForm.formState.submitCount > 0,
-                      })
-                    }}
-                    aria-invalid={Boolean(otpError)}
-                  >
-                    <InputOTPGroup>
-                      <InputOTPSlot index={0} />
-                      <InputOTPSlot index={1} />
-                      <InputOTPSlot index={2} />
-                      <InputOTPSlot index={3} />
-                      <InputOTPSlot index={4} />
-                      <InputOTPSlot index={5} />
-                    </InputOTPGroup>
-                  </InputOTP>
-                </div>
-                <FieldError message={otpError} className="mt-2 text-center" />
+              <FormProvider {...otpForm}>
+                <form onSubmit={handleOTPSubmit} noValidate>
+                  <div className="flex justify-center">
+                    <RHFInputOTP<OtpFormValues> name="code" maxLength={6}>
+                      <InputOTPGroup>
+                        <InputOTPSlot index={0} />
+                        <InputOTPSlot index={1} />
+                        <InputOTPSlot index={2} />
+                        <InputOTPSlot index={3} />
+                        <InputOTPSlot index={4} />
+                        <InputOTPSlot index={5} />
+                      </InputOTPGroup>
+                    </RHFInputOTP>
+                  </div>
+                  <FieldError message={otpError} className="mt-2 text-center" />
 
-                <Button type="submit" className="mt-6 w-full rounded-full" disabled={isLoading}>
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Đang xác minh...
-                    </>
-                  ) : (
-                    'Xác minh'
-                  )}
-                </Button>
-              </form>
+                  <Button type="submit" className="mt-6 w-full rounded-full" disabled={isLoading}>
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Đang xác minh...
+                      </>
+                    ) : (
+                      'Xác minh'
+                    )}
+                  </Button>
+                </form>
+              </FormProvider>
 
               <div className="text-center text-sm text-muted-foreground">
                 {manualOtp ? 'Muốn tạo mã mới?' : 'Không nhận được mã?'}{' '}
@@ -411,37 +401,22 @@ function AuthContent() {
                         <FieldError message={studentIdError} />
                       </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="department">Khoa / ngành</Label>
-                        <Controller
-                          name="department"
-                          control={registerForm.control}
-                          render={({ field }) => (
-                            <Select
-                              value={field.value}
-                              onValueChange={(value) =>
-                                registerForm.setValue('department', value as Department, {
-                                  shouldDirty: true,
-                                  shouldTouch: true,
-                                  shouldValidate: true,
-                                })
-                              }
-                            >
-                              <SelectTrigger id="department" className="h-11 rounded-xl" aria-invalid={Boolean(departmentError)} onBlur={field.onBlur}>
-                                <SelectValue placeholder="Chọn khoa / ngành" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {Object.entries(departmentLabels).map(([key, label]) => (
-                                  <SelectItem key={key} value={key}>
-                                    {label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          )}
-                        />
-                        <FieldError message={departmentError} />
-                      </div>
+                      <FormProvider {...registerForm}>
+                        <div className="space-y-2">
+                          <Label htmlFor="department">Khoa / ngành</Label>
+                          <RHFSelect<RegisterFormValues>
+                            name="department"
+                            triggerId="department"
+                            placeholder="Chọn khoa / ngành"
+                            triggerClassName="h-11 rounded-xl"
+                            options={Object.entries(departmentLabels).map(([key, label]) => ({
+                              value: key,
+                              label,
+                            }))}
+                          />
+                          <FieldError message={departmentError} />
+                        </div>
+                      </FormProvider>
                     </div>
                   </>
                 ) : null}

@@ -2,8 +2,9 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import { BadgeCheck, Clock, Eye, Heart, MapPin } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { vi } from 'date-fns/locale'
@@ -12,8 +13,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent } from '@/shared/ui/card'
+import { queryKeys } from '@/core/query/keys'
 import { cn, formatPrice } from '@/lib/utils'
-import { listingsApi } from '@/lib/api'
+import { useSaveListingMutation, useUnsaveListingMutation } from '@/modules/listings/services/listings.queries'
 import type { Product } from '@/lib/types'
 import { categoryLabels, conditionLabels, departmentLabels, statusLabels } from '@/lib/types'
 import { useAuth } from '@/core/providers/auth-provider'
@@ -33,15 +35,13 @@ const statusColors = {
 export function ProductCard({ product, variant = 'default', priority = false }: ProductCardProps) {
   const router = useRouter()
   const { user } = useAuth()
-  const [isSaved, setIsSaved] = useState(Boolean(product.isSaved))
-  const [savedCount, setSavedCount] = useState(product.savedCount)
-  const [saving, setSaving] = useState(false)
+  const queryClient = useQueryClient()
+  const saveMutation = useSaveListingMutation()
+  const unsaveMutation = useUnsaveListingMutation()
   const [imageError, setImageError] = useState(false)
-
-  useEffect(() => {
-    setIsSaved(Boolean(product.isSaved))
-    setSavedCount(product.savedCount)
-  }, [product, user])
+  const saving = saveMutation.isPending || unsaveMutation.isPending
+  const isSaved = Boolean(product.isSaved)
+  const savedCount = product.savedCount
 
   const discount = product.originalPrice ? Math.round((1 - product.price / product.originalPrice) * 100) : 0
 
@@ -57,23 +57,21 @@ export function ProductCard({ product, variant = 'default', priority = false }: 
       return
     }
 
-    setSaving(true)
     try {
       if (isSaved) {
-        await listingsApi.unsave(product.id)
-        setIsSaved(false)
-        setSavedCount((previous) => Math.max(0, previous - 1))
+        await unsaveMutation.mutateAsync(product.id)
         toast.success('Đã bỏ lưu sản phẩm')
       } else {
-        await listingsApi.save(product.id)
-        setIsSaved(true)
-        setSavedCount((previous) => previous + 1)
+        await saveMutation.mutateAsync(product.id)
         toast.success('Đã lưu sản phẩm')
       }
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.listings.byId(product.id) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.listings.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.users.all }),
+      ])
     } catch {
       toast.error('Không thể cập nhật trạng thái lưu')
-    } finally {
-      setSaving(false)
     }
   }
 

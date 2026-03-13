@@ -1,9 +1,10 @@
 'use client'
 
-import { use, useEffect, useMemo, useState } from 'react'
+import { use, useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft,
   BadgeCheck,
@@ -25,9 +26,15 @@ import { toast } from 'sonner'
 import { PageShell } from '@/components/page-shell'
 import { ProductCard } from '@/components/product-card'
 import { ReportDialog } from '@/components/report-dialog'
-import { conversationsApi, listingsApi } from '@/lib/api'
+import { queryKeys } from '@/core/query/keys'
+import { useCreateConversationMutation } from '@/modules/chat/services/conversations.queries'
+import {
+  useListingDetailQuery,
+  useRelatedListingsQuery,
+  useSaveListingMutation,
+  useUnsaveListingMutation,
+} from '@/modules/listings/services/listings.queries'
 import { useAuth } from '@/core/providers/auth-provider'
-import type { Product } from '@/lib/types'
 import { categoryLabels, conditionLabels, departmentLabels, statusLabels } from '@/lib/types'
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar'
 import { Badge } from '@/shared/ui/badge'
@@ -46,37 +53,24 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const { id } = use(params)
   const router = useRouter()
   const { user } = useAuth()
+  const queryClient = useQueryClient()
 
-  const [product, setProduct] = useState<Product | null>(null)
-  const [relatedProducts, setRelatedProducts] = useState<Product[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const detailQuery = useListingDetailQuery(id)
+  const product = detailQuery.data ?? null
+  const relatedProductsQuery = useRelatedListingsQuery({
+    category: product?.category,
+    exceptListingId: product?.id,
+  })
+  const saveMutation = useSaveListingMutation()
+  const unsaveMutation = useUnsaveListingMutation()
+  const createConversationMutation = useCreateConversationMutation()
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [imageError, setImageError] = useState<Record<number, boolean>>({})
-  const [actionLoading, setActionLoading] = useState(false)
   const [reportDialogOpen, setReportDialogOpen] = useState(false)
 
-  useEffect(() => {
-    const run = async () => {
-      setIsLoading(true)
-      try {
-        const detail = await listingsApi.byId(id)
-        setProduct(detail)
-
-        const related = await listingsApi.list({
-          category: detail.category,
-          limit: 8,
-          sortBy: 'newest',
-        })
-        setRelatedProducts(related.data.filter((item) => item.id !== detail.id).slice(0, 4))
-      } catch {
-        setProduct(null)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    void run()
-  }, [id])
+  const relatedProducts = relatedProductsQuery.data ?? []
+  const actionLoading =
+    saveMutation.isPending || unsaveMutation.isPending || createConversationMutation.isPending
 
   const discount = useMemo(
     () => (product?.originalPrice ? Math.round((1 - product.price / product.originalPrice) * 100) : 0),
@@ -110,21 +104,31 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       return
     }
 
-    setActionLoading(true)
     try {
       if (product.isSaved) {
-        await listingsApi.unsave(product.id)
-        setProduct({ ...product, isSaved: false, savedCount: Math.max(0, product.savedCount - 1) })
+        await unsaveMutation.mutateAsync(product.id)
+        queryClient.setQueryData(queryKeys.listings.byId(product.id), {
+          ...product,
+          isSaved: false,
+          savedCount: Math.max(0, product.savedCount - 1),
+        })
         toast.success('Đã bỏ lưu sản phẩm')
       } else {
-        await listingsApi.save(product.id)
-        setProduct({ ...product, isSaved: true, savedCount: product.savedCount + 1 })
+        await saveMutation.mutateAsync(product.id)
+        queryClient.setQueryData(queryKeys.listings.byId(product.id), {
+          ...product,
+          isSaved: true,
+          savedCount: product.savedCount + 1,
+        })
         toast.success('Đã lưu sản phẩm')
       }
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.listings.byId(product.id) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.listings.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.users.all }),
+      ])
     } catch {
       toast.error('Không cập nhật được trạng thái lưu')
-    } finally {
-      setActionLoading(false)
     }
   }
 
@@ -138,17 +142,15 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       return
     }
 
-    setActionLoading(true)
     try {
-      const conversation = await conversationsApi.create({
+      const conversation = await createConversationMutation.mutateAsync({
         participantId: product.seller.id,
         productId: product.id,
       })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.conversations.list() })
       router.push(`/chat?conversation=${conversation.id}`)
     } catch {
       toast.error('Không tạo được hội thoại')
-    } finally {
-      setActionLoading(false)
     }
   }
 
@@ -165,7 +167,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     setReportDialogOpen(true)
   }
 
-  if (isLoading) {
+  if (detailQuery.isPending) {
     return (
       <PageShell>
         <main className="flex min-h-[calc(100dvh-8rem)] items-center justify-center">
@@ -175,7 +177,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     )
   }
 
-  if (!product) {
+  if (!product || detailQuery.isError) {
     return (
       <PageShell>
         <main className="flex min-h-[calc(100dvh-8rem)] flex-col items-center justify-center px-4 text-center">

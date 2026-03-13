@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import { zodResolver } from '@hookform/resolvers/zod'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -26,7 +27,7 @@ import {
 } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
 import { vi } from 'date-fns/locale'
-import { Controller, useForm } from 'react-hook-form'
+import { FormProvider, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { AppShell } from '@/components/app-shell'
 import { ProductCard } from '@/components/product-card'
@@ -37,19 +38,32 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/sha
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/ui/dropdown-menu'
 import { FieldError } from '@/shared/ui/field-error'
+import { FormFieldErrorMessage, RHFInput, RHFSelect } from '@/shared/ui/form'
 import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/shared/ui/sheet'
+import { queryKeys } from '@/core/query/keys'
 import { cn, formatPrice } from '@/lib/utils'
 import { toProfileUpdatePayload } from '@/lib/validation/adapters'
 import { avatarFileSchema, profileFormSchema, type ProfileFormValues } from '@/lib/validation/schemas'
-import { conversationsApi, dashboardApi, listingsApi, uploadsApi, usersApi } from '@/lib/api'
-import type { Conversation, DashboardSummary, Department, Product, ProductStatus } from '@/lib/types'
+import { uploadsApi } from '@/lib/api'
+import type { Department, ProductStatus } from '@/lib/types'
 import { categoryLabels, departmentLabels, statusLabels } from '@/lib/types'
 import { useAuth } from '@/core/providers/auth-provider'
+import { useConversationsListQuery } from '@/modules/chat/services/conversations.queries'
+import { useDashboardSummaryQuery } from '@/modules/dashboard/services/dashboard.queries'
+import {
+  useRemoveListingMutation,
+  useUpdateListingStatusMutation,
+} from '@/modules/listings/services/listings.queries'
+import {
+  useMyListingsQuery,
+  useMySavedListingsQuery,
+  useUpdateMeMutation,
+} from '@/modules/users/services/users.queries'
 
 const AVATAR_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+const DASHBOARD_LISTINGS_PARAMS = { page: 1, limit: 50 } as const
 
 const revokeBlobUrl = (value?: string | null) => {
   if (value?.startsWith('blob:')) {
@@ -61,12 +75,36 @@ function DashboardContent() {
   const searchParams = useSearchParams()
   const defaultTab = searchParams.get('tab') || 'overview'
   const { user, loading: authLoading, refreshMe } = useAuth()
+  const queryClient = useQueryClient()
+  const myListingsKey = queryKeys.users.myListings(DASHBOARD_LISTINGS_PARAMS)
 
-  const [summary, setSummary] = useState<DashboardSummary | null>(null)
-  const [myProducts, setMyProducts] = useState<Product[]>([])
-  const [savedProducts, setSavedProducts] = useState<Product[]>([])
-  const [conversations, setConversations] = useState<Conversation[]>([])
-  const [loading, setLoading] = useState(true)
+  const summaryQuery = useDashboardSummaryQuery(Boolean(user))
+  const myListingsQuery = useMyListingsQuery({
+    params: DASHBOARD_LISTINGS_PARAMS,
+    enabled: Boolean(user),
+  })
+  const savedListingsQuery = useMySavedListingsQuery({
+    params: DASHBOARD_LISTINGS_PARAMS,
+    enabled: Boolean(user),
+  })
+  const conversationsQuery = useConversationsListQuery(Boolean(user))
+
+  const updateMeMutation = useUpdateMeMutation()
+  const removeListingMutation = useRemoveListingMutation()
+  const updateListingStatusMutation = useUpdateListingStatusMutation()
+
+  const summary = summaryQuery.data ?? null
+  const myProducts = myListingsQuery.data?.data ?? []
+  const savedProducts = savedListingsQuery.data?.data ?? []
+  const conversations = useMemo(
+    () => conversationsQuery.data ?? [],
+    [conversationsQuery.data],
+  )
+
+  const loading =
+    Boolean(user) &&
+    (summaryQuery.isPending || myListingsQuery.isPending || savedListingsQuery.isPending || conversationsQuery.isPending)
+
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
   const profileForm = useForm<ProfileFormValues>({
@@ -84,35 +122,17 @@ function DashboardContent() {
   const [avatarError, setAvatarError] = useState<string | null>(null)
   const avatarInputRef = useRef<HTMLInputElement | null>(null)
 
-  const loadDashboard = async () => {
-    if (!user) {
-      return
-    }
-
-    setLoading(true)
-    try {
-      const [summaryData, myListingsData, savedData, convData] = await Promise.all([
-        dashboardApi.summary(),
-        usersApi.myListings({ page: 1, limit: 50 }),
-        usersApi.mySavedListings({ page: 1, limit: 50 }),
-        conversationsApi.list(),
-      ])
-
-      setSummary(summaryData)
-      setMyProducts(myListingsData.data)
-      setSavedProducts(savedData.data)
-      setConversations(convData)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Không tải dữ liệu dashboard được')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   useEffect(() => {
-    loadDashboard()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id])
+    const error =
+      summaryQuery.error ??
+      myListingsQuery.error ??
+      savedListingsQuery.error ??
+      conversationsQuery.error
+
+    if (error instanceof Error) {
+      toast.error(error.message)
+    }
+  }, [conversationsQuery.error, myListingsQuery.error, savedListingsQuery.error, summaryQuery.error])
 
   useEffect(
     () => () => {
@@ -229,8 +249,13 @@ function DashboardContent() {
         return
       }
 
-      await usersApi.updateMe(payload)
+      await updateMeMutation.mutateAsync(payload)
       await refreshMe()
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.auth.me() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.users.all }),
+      ])
+
       revokeBlobUrl(avatarPreview)
       if (avatarInputRef.current) {
         avatarInputRef.current.value = ''
@@ -264,28 +289,59 @@ function DashboardContent() {
   const totalViews = summary?.totalViews ?? myProducts.reduce((acc, p) => acc + p.views, 0)
 
   const handleDeletePost = async (productId: string) => {
+    const previous = myListingsQuery.data
+    if (previous) {
+      queryClient.setQueryData(myListingsKey, {
+        ...previous,
+        data: previous.data.filter((item) => item.id !== productId),
+      })
+    }
+
     try {
-      await listingsApi.remove(productId)
-      setMyProducts((prev) => prev.filter((item) => item.id !== productId))
+      await removeListingMutation.mutateAsync(productId)
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.users.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.listings.all }),
+      ])
       toast.success('Đã xóa bài đăng thành công')
-    } catch {
-      toast.error('Không xóa bài đăng được')
+    } catch (error) {
+      if (previous) {
+        queryClient.setQueryData(myListingsKey, previous)
+      }
+      toast.error(error instanceof Error ? error.message : 'Không xóa bài đăng được')
     }
   }
 
   const handleUpdateStatus = async (productId: string, nextStatus: ProductStatus) => {
-    const previous = myProducts.find((item) => item.id === productId)
-    if (!previous || previous.status === nextStatus) {
+    const previousItem = myProducts.find((item) => item.id === productId)
+    if (!previousItem || previousItem.status === nextStatus || !myListingsQuery.data) {
       return
     }
 
-    setMyProducts((prev) => prev.map((item) => (item.id === productId ? { ...item, status: nextStatus } : item)))
+    const previous = myListingsQuery.data
+    const optimistic = {
+      ...previous,
+      data: previous.data.map((item) =>
+        item.id === productId ? { ...item, status: nextStatus } : item,
+      ),
+    }
+
+    queryClient.setQueryData(myListingsKey, optimistic)
+
     try {
-      const updated = await listingsApi.updateStatus(productId, nextStatus)
-      setMyProducts((prev) => prev.map((item) => (item.id === productId ? updated : item)))
+      const updated = await updateListingStatusMutation.mutateAsync({ id: productId, status: nextStatus })
+      queryClient.setQueryData(myListingsKey, {
+        ...optimistic,
+        data: optimistic.data.map((item) => (item.id === productId ? updated : item)),
+      })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.listings.all }),
+      ])
       toast.success('Đã cập nhật trạng thái bài đăng')
     } catch (error) {
-      setMyProducts((prev) => prev.map((item) => (item.id === productId ? previous : item)))
+      queryClient.setQueryData(myListingsKey, previous)
       toast.error(error instanceof Error ? error.message : 'Không cập nhật trạng thái được')
     }
   }
@@ -643,8 +699,9 @@ function DashboardContent() {
             <SheetDescription>Cập nhật thông tin hiển thị và ảnh đại diện của bạn.</SheetDescription>
           </SheetHeader>
 
-          <form className="flex h-[calc(100dvh-84px)] flex-col" onSubmit={handleSaveProfile} noValidate>
-            <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">
+          <FormProvider {...profileForm}>
+            <form className="flex h-[calc(100dvh-84px)] flex-col" onSubmit={handleSaveProfile} noValidate>
+              <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">
               <div className="rounded-2xl border border-border/70 bg-gradient-to-br from-primary/5 via-background to-background p-4">
                 <Label className="text-sm font-medium">Ảnh đại diện</Label>
                 <div className="mt-3 flex items-center gap-4">
@@ -691,66 +748,24 @@ function DashboardContent() {
                     <Label htmlFor="profile-name">Tên hiển thị</Label>
                     <span className="text-xs text-muted-foreground">{profileValues.name.length}/100</span>
                   </div>
-                  <Input
+                  <RHFInput<ProfileFormValues>
                     id="profile-name"
-                    {...profileForm.register('name')}
+                    name="name"
                     maxLength={100}
-                    aria-invalid={Boolean(
-                      (profileForm.formState.submitCount > 0 || profileForm.formState.touchedFields.name) &&
-                        profileForm.formState.errors.name,
-                    )}
                   />
-                  <FieldError
-                    message={
-                      profileForm.formState.submitCount > 0 || profileForm.formState.touchedFields.name
-                        ? profileForm.formState.errors.name?.message
-                        : undefined
-                    }
-                  />
+                  <FormFieldErrorMessage<ProfileFormValues> name="name" />
                 </div>
 
                 <div className="space-y-2">
                   <Label>Ngành học</Label>
-                  <Controller
+                  <RHFSelect<ProfileFormValues>
                     name="department"
-                    control={profileForm.control}
-                    render={({ field }) => (
-                      <Select
-                        value={field.value}
-                        onValueChange={(value) =>
-                          profileForm.setValue('department', value as Department, {
-                            shouldDirty: true,
-                            shouldTouch: true,
-                            shouldValidate: true,
-                          })
-                        }
-                      >
-                        <SelectTrigger
-                          aria-invalid={Boolean(
-                            (profileForm.formState.submitCount > 0 || profileForm.formState.touchedFields.department) &&
-                              profileForm.formState.errors.department,
-                          )}
-                          onBlur={field.onBlur}
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.entries(departmentLabels).map(([key, label]) => (
-                            <SelectItem key={key} value={key}>
-                              {label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
+                    options={Object.entries(departmentLabels).map(([key, label]) => ({
+                      value: key,
+                      label,
+                    }))}
                   />
-                  <FieldError
-                    message={
-                      profileForm.formState.submitCount > 0 || profileForm.formState.touchedFields.department
-                        ? profileForm.formState.errors.department?.message
-                        : undefined
-                    }
-                  />
+                  <FormFieldErrorMessage<ProfileFormValues> name="department" />
                 </div>
               </div>
 
@@ -765,19 +780,20 @@ function DashboardContent() {
                   <Input value={user.studentId} disabled />
                 </div>
               </div>
-            </div>
-
-            <SheetFooter className="border-t bg-background/95 px-6 py-4 backdrop-blur">
-              <div className="flex w-full gap-2">
-                <Button type="button" variant="outline" className="flex-1" onClick={() => setIsEditProfileOpen(false)}>
-                  Hủy
-                </Button>
-                <Button type="submit" className="flex-1" disabled={!hasProfileChanges || isSavingProfile}>
-                  {isSavingProfile ? 'Đang lưu...' : 'Lưu thay đổi'}
-                </Button>
               </div>
-            </SheetFooter>
-          </form>
+
+              <SheetFooter className="border-t bg-background/95 px-6 py-4 backdrop-blur">
+                <div className="flex w-full gap-2">
+                  <Button type="button" variant="outline" className="flex-1" onClick={() => setIsEditProfileOpen(false)}>
+                    Hủy
+                  </Button>
+                  <Button type="submit" className="flex-1" disabled={!hasProfileChanges || isSavingProfile}>
+                    {isSavingProfile ? 'Đang lưu...' : 'Lưu thay đổi'}
+                  </Button>
+                </div>
+              </SheetFooter>
+            </form>
+          </FormProvider>
         </SheetContent>
       </Sheet>
     </AppShell>

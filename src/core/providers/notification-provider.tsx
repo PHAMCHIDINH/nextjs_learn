@@ -3,21 +3,24 @@
 import {
   createContext,
   useCallback,
-  useContext,
   useEffect,
+  useContext,
   useMemo,
   useRef,
-  useState,
   type ReactNode,
 } from 'react'
 import { io, type Socket } from 'socket.io-client'
 import { toast } from 'sonner'
-import { getApiBaseUrl, notificationsApi } from '@/lib/api'
-import type { Notification, NotificationType } from '@/lib/types'
+import { getApiBaseUrl } from '@/lib/api'
+import type { Notification } from '@/lib/types'
 import { useAuth } from '@/core/providers/auth-provider'
+import {
+  normalizeNotification,
+  NotificationStoreProvider,
+  useNotificationStore,
+  useNotificationStoreApi,
+} from '@/core/state/notification-store'
 import { authApi } from '@/modules/auth/services/auth.api'
-
-const MAX_NOTIFICATIONS = 20
 
 type NotificationContextValue = {
   unreadCount: number
@@ -28,157 +31,48 @@ type NotificationContextValue = {
   refresh: () => Promise<void>
 }
 
-type UnknownRecord = Record<string, unknown>
-
-const isRecord = (value: unknown): value is UnknownRecord =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-
-const toDate = (value: unknown): Date => {
-  if (value instanceof Date) {
-    return value
-  }
-
-  if (typeof value === 'string' || typeof value === 'number') {
-    const parsed = new Date(value)
-    if (!Number.isNaN(parsed.getTime())) {
-      return parsed
-    }
-  }
-
-  return new Date()
-}
-
-const normalizeNotificationType = (value: unknown): NotificationType => {
-  if (
-    value === 'NEW_MESSAGE' ||
-    value === 'LISTING_APPROVED' ||
-    value === 'LISTING_REJECTED' ||
-    value === 'NEW_REVIEW'
-  ) {
-    return value
-  }
-
-  return 'NEW_MESSAGE'
-}
-
-const normalizeNotification = (value: unknown): Notification | null => {
-  if (!isRecord(value)) {
-    return null
-  }
-
-  const id = typeof value.id === 'string' ? value.id : ''
-  if (!id) {
-    return null
-  }
-
-  return {
-    id,
-    type: normalizeNotificationType(value.type),
-    title: typeof value.title === 'string' ? value.title : '',
-    body: typeof value.body === 'string' ? value.body : '',
-    isRead: typeof value.isRead === 'boolean' ? value.isRead : false,
-    metadata: isRecord(value.metadata) ? value.metadata : undefined,
-    createdAt: toDate(value.createdAt),
-  }
-}
-
 const NotificationContext = createContext<NotificationContextValue | undefined>(undefined)
 
-export function NotificationProvider({ children }: { children: ReactNode }) {
+function NotificationContextBridge({ children }: { children: ReactNode }) {
   const { user } = useAuth()
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [unreadCount, setUnreadCount] = useState(0)
+  const userId = user?.id
   const socketRef = useRef<Socket | null>(null)
-
-  const clearState = useCallback(() => {
-    setNotifications([])
-    setUnreadCount(0)
-  }, [])
+  const notificationStore = useNotificationStoreApi()
+  const notifications = useNotificationStore((state) => state.notifications)
+  const unreadCount = useNotificationStore((state) => state.unreadCount)
+  const refreshStore = useNotificationStore((state) => state.refresh)
+  const markReadStore = useNotificationStore((state) => state.markRead)
+  const markAllReadStore = useNotificationStore((state) => state.markAllRead)
 
   const refresh = useCallback(async () => {
-    if (!user) {
-      clearState()
-      return
-    }
-
     try {
-      const [countResult, notificationsResult] = await Promise.all([
-        notificationsApi.unreadCount(),
-        notificationsApi.list({ page: 1, limit: MAX_NOTIFICATIONS }),
-      ])
-
-      setUnreadCount(countResult.count)
-      setNotifications(notificationsResult.data)
+      await refreshStore(userId)
     } catch {
-      // keep previous state when fetch fails
+      toast.error('Không tải được thông báo')
     }
-  }, [clearState, user])
+  }, [refreshStore, userId])
 
   const markRead = useCallback(
     async (id: string) => {
-      if (!user) {
-        return
-      }
-
-      const target = notifications.find((item) => item.id === id)
-      if (target && !target.isRead) {
-        setUnreadCount((previous) => Math.max(previous - 1, 0))
-      }
-
-      setNotifications((previous) =>
-        previous.map((item) =>
-          item.id === id
-            ? {
-                ...item,
-                isRead: true,
-              }
-            : item,
-        ),
-      )
-
-      try {
-        await notificationsApi.markRead(id)
-      } catch {
-        await refresh()
-      }
+      await markReadStore(id, userId)
     },
-    [notifications, refresh, user],
+    [markReadStore, userId],
   )
 
   const markAllRead = useCallback(async () => {
-    if (!user) {
-      return
-    }
-
-    setUnreadCount(0)
-    setNotifications((previous) =>
-      previous.map((item) =>
-        item.isRead
-          ? item
-          : {
-              ...item,
-              isRead: true,
-            },
-      ),
-    )
-
-    try {
-      await notificationsApi.markAllRead()
-    } catch {
-      await refresh()
-    }
-  }, [refresh, user])
+    await markAllReadStore(userId)
+  }, [markAllReadStore, userId])
 
   useEffect(() => {
-    if (!user) {
+    if (!userId) {
       socketRef.current?.removeAllListeners()
       socketRef.current?.disconnect()
       socketRef.current = null
-      clearState()
+      notificationStore.getState().clear()
       return
     }
 
-    void refresh()
+    void notificationStore.getState().bootstrap(userId).catch(() => {})
 
     const socket = io(`${getApiBaseUrl()}/notifications`, {
       autoConnect: false,
@@ -196,26 +90,25 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
     socketRef.current = socket
 
+    socket.on('connect', () => {
+      notificationStore.getState().setSocketConnected(true)
+    })
+
+    socket.on('disconnect', () => {
+      notificationStore.getState().setSocketConnected(false)
+    })
+
+    socket.on('connect_error', () => {
+      notificationStore.getState().setSocketConnected(false)
+    })
+
     socket.on('notification:new', (rawPayload: unknown) => {
       const incoming = normalizeNotification(rawPayload)
       if (!incoming) {
         return
       }
 
-      let shouldIncrementUnread = !incoming.isRead
-      setNotifications((previous) => {
-        const existing = previous.find((item) => item.id === incoming.id)
-        if (existing) {
-          shouldIncrementUnread = !incoming.isRead && existing.isRead
-        }
-
-        const next = [incoming, ...previous.filter((item) => item.id !== incoming.id)]
-        return next.slice(0, MAX_NOTIFICATIONS)
-      })
-
-      if (shouldIncrementUnread) {
-        setUnreadCount((previous) => previous + 1)
-      }
+      notificationStore.getState().pushIncoming(incoming)
 
       toast(incoming.title || 'Thong bao moi', {
         description: incoming.body,
@@ -225,11 +118,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     socket.connect()
 
     return () => {
+      notificationStore.getState().setSocketConnected(false)
       socket.removeAllListeners()
       socket.disconnect()
       socketRef.current = null
     }
-  }, [clearState, refresh, user])
+  }, [notificationStore, userId])
 
   const chatUnreadCount = useMemo(
     () => notifications.filter((item) => !item.isRead && item.type === 'NEW_MESSAGE').length,
@@ -249,6 +143,14 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   )
 
   return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>
+}
+
+export function NotificationProvider({ children }: { children: ReactNode }) {
+  return (
+    <NotificationStoreProvider>
+      <NotificationContextBridge>{children}</NotificationContextBridge>
+    </NotificationStoreProvider>
+  )
 }
 
 export function useNotification() {

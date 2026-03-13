@@ -2,15 +2,17 @@
 
 import {
   createContext,
-  useCallback,
-  useContext,
   useEffect,
+  useContext,
   useMemo,
-  useState,
   type ReactNode,
 } from 'react'
 import type { User } from '@/lib/types'
-import { authApi } from '@/modules/auth/services/auth.api'
+import {
+  AuthStoreProvider,
+  useAuthStore,
+  useAuthStoreApi,
+} from '@/core/state/auth-store'
 
 type SessionInput = {
   user: User
@@ -24,57 +26,44 @@ type AuthContextValue = {
   logout: () => Promise<void>
 }
 
-const AuthContext = createContext<AuthContextValue | undefined>(undefined)
-
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  const refreshMe = useCallback(async () => {
-    try {
-      const me = await authApi.me()
-      setUser(me)
-      return me
-    } catch {
-      setUser(null)
-      return null
-    }
-  }, [])
-
-  const setSession = useCallback((payload: SessionInput) => {
-    setUser(payload.user)
-  }, [])
-
-  const logout = useCallback(async () => {
-    try {
-      await authApi.logout()
-    } catch {
-      // ignore network/logout errors and clear local state
-    } finally {
-      setUser(null)
-    }
-  }, [])
+function AuthContextBridge({ children }: { children: ReactNode }) {
+  const authStore = useAuthStoreApi()
+  const user = useAuthStore((state) => state.user)
+  const status = useAuthStore((state) => state.status)
+  const setSession = useAuthStore((state) => state.setSession)
+  const refreshMe = useAuthStore((state) => state.refreshMe)
+  const logout = useAuthStore((state) => state.logout)
 
   useEffect(() => {
-    const run = async () => {
-      await refreshMe()
-      setLoading(false)
-    }
-    run()
-  }, [refreshMe])
+    void authStore.getState().bootstrap()
+  }, [authStore])
 
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
-      loading,
+      loading: status === 'idle' || status === 'loading',
       setSession,
       refreshMe,
       logout,
     }),
-    [loading, refreshMe, setSession, user, logout],
+    [logout, refreshMe, setSession, status, user],
   )
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  )
+}
+
+const AuthContext = createContext<AuthContextValue | undefined>(undefined)
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  return (
+    <AuthStoreProvider>
+      <AuthContextBridge>{children}</AuthContextBridge>
+    </AuthStoreProvider>
+  )
 }
 
 export function useAuth() {

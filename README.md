@@ -29,6 +29,16 @@ The frontend uses:
 - direct browser/API calls to `NEXT_PUBLIC_API_BASE_URL`
 - bearer token + cookie credentials for authenticated endpoints
 
+## State Management
+
+The frontend separates state by responsibility:
+
+- `@tanstack/react-query` for server state
+- `zustand` for shared client runtime state
+- `react-hook-form` for form state and validation
+
+Implementation details and rules live in [docs/state-management-zustand.md](/mnt/d/base_code/frontend-repo/docs/state-management-zustand.md).
+
 ## Test Flow
 
 1) Open `http://localhost:3001`.

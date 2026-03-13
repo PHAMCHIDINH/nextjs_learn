@@ -2,8 +2,11 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { zodResolver } from '@hookform/resolvers/zod'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useQueryClient } from '@tanstack/react-query'
+import { useForm } from 'react-hook-form'
 import { io, type Socket } from 'socket.io-client'
 import {
   AlertCircle,
@@ -23,8 +26,10 @@ import { format, formatDistanceToNow, isToday, isYesterday } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import { toast } from 'sonner'
 import { AppShell } from '@/components/app-shell'
+import { useChatUiStore } from '@/core/state/chat-ui-store'
+import { queryKeys } from '@/core/query/keys'
 import { conversationsApi, getApiBaseUrl, uploadsApi, usersApi } from '@/lib/api'
-import { chatImageFileSchema } from '@/lib/validation/schemas'
+import { chatComposerSchema, type ChatComposerFormValues } from '@/lib/validation/schemas'
 import { useAuth } from '@/core/providers/auth-provider'
 import { authApi } from '@/modules/auth/services/auth.api'
 import type { Conversation, Message } from '@/lib/types'
@@ -50,7 +55,6 @@ import { cn, formatPrice } from '@/lib/utils'
 
 const FALLBACK_POLL_MS = 6000
 const MESSAGE_ACK_TIMEOUT_MS = 10000
-const MUTED_CONVERSATIONS_KEY = 'cho_sinh_vien_muted_conversations'
 
 type DeliveryStatus = 'sending' | 'sent' | 'failed'
 
@@ -85,13 +89,13 @@ type ChatAreaPanelProps = {
   selectedConversation: Conversation | null
   currentUserId?: string
   messages: UiMessage[]
-  draftText: string
+  message: string
   hasPendingImage: boolean
   pendingImagePreview: string | null
-  composerError: string | null
+  composerError?: string
   isSending: boolean
   isUploadingImage: boolean
-  onDraftTextChange: (value: string) => void
+  onMessageChange: (value: string) => void
   onSendMessage: () => void
   onPickImage: () => void
   onRemovePendingImage: () => void
@@ -174,36 +178,6 @@ const formatMessageTime = (date: Date) => {
   }
 
   return format(date, 'dd/MM HH:mm')
-}
-
-const readMutedConversations = () => {
-  if (typeof window === 'undefined') {
-    return new Set<string>()
-  }
-
-  const raw = window.localStorage.getItem(MUTED_CONVERSATIONS_KEY)
-  if (!raw) {
-    return new Set<string>()
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as unknown
-    if (!Array.isArray(parsed)) {
-      return new Set<string>()
-    }
-
-    return new Set(parsed.filter((value): value is string => typeof value === 'string' && value.trim().length > 0))
-  } catch {
-    return new Set<string>()
-  }
-}
-
-const saveMutedConversations = (mutedIds: Set<string>) => {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  window.localStorage.setItem(MUTED_CONVERSATIONS_KEY, JSON.stringify(Array.from(mutedIds)))
 }
 
 function ConversationListPanel({
@@ -325,13 +299,13 @@ function ChatAreaPanel({
   selectedConversation,
   currentUserId,
   messages,
-  draftText,
+  message,
   hasPendingImage,
   pendingImagePreview,
   composerError,
   isSending,
   isUploadingImage,
-  onDraftTextChange,
+  onMessageChange,
   onSendMessage,
   onPickImage,
   onRemovePendingImage,
@@ -554,8 +528,8 @@ function ChatAreaPanel({
           </Button>
           <Input
             placeholder="Nhập tin nhắn..."
-            value={draftText}
-            onChange={(event) => onDraftTextChange(event.target.value)}
+            value={message}
+            onChange={(event) => onMessageChange(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Enter' && !event.shiftKey) {
                 event.preventDefault()
@@ -569,7 +543,7 @@ function ChatAreaPanel({
             size="icon"
             className="rounded-full"
             onClick={onSendMessage}
-            disabled={(!draftText.trim() && !hasPendingImage) || isSending || isUploadingImage}
+            disabled={(!message.trim() && !hasPendingImage) || isSending || isUploadingImage}
           >
             {isSending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
           </Button>
@@ -588,23 +562,42 @@ function ChatContent() {
   const sellerId = searchParams.get('seller')
 
   const { user } = useAuth()
+  const queryClient = useQueryClient()
   const currentUserId = user?.id
+  const selectedConversationId = useChatUiStore((state) => state.selectedConversationId)
+  const setSelectedConversationId = useChatUiStore((state) => state.setSelectedConversationId)
+  const searchQuery = useChatUiStore((state) => state.searchQuery)
+  const setSearchQuery = useChatUiStore((state) => state.setSearchQuery)
+  const showMobileChat = useChatUiStore((state) => state.showMobileChat)
+  const setShowMobileChat = useChatUiStore((state) => state.setShowMobileChat)
+  const mutedConversationIds = useChatUiStore((state) => state.mutedConversationIds)
+  const toggleMutedConversation = useChatUiStore((state) => state.toggleMutedConversation)
+  const selectedConversationDraft = useChatUiStore((state) =>
+    state.selectedConversationId
+      ? state.draftTextByConversationId[state.selectedConversationId] ?? ''
+      : '',
+  )
+  const setDraftText = useChatUiStore((state) => state.setDraftText)
+  const clearDraft = useChatUiStore((state) => state.clearDraft)
+  const clearRuntimeState = useChatUiStore((state) => state.clearRuntimeState)
+  const composerForm = useForm<ChatComposerFormValues>({
+    resolver: zodResolver(chatComposerSchema),
+    mode: 'onBlur',
+    reValidateMode: 'onChange',
+    defaultValues: {
+      message: '',
+      imageFile: undefined,
+    },
+  })
 
   const [conversations, setConversations] = useState<Conversation[]>([])
-  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null)
   const [messages, setMessages] = useState<UiMessage[]>([])
-  const [draftText, setDraftText] = useState('')
-  const [pendingImageFile, setPendingImageFile] = useState<File | null>(null)
   const [pendingImagePreview, setPendingImagePreview] = useState<string | null>(null)
-  const [composerError, setComposerError] = useState<string | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [isSending, setIsSending] = useState(false)
   const [isUploadingImage, setIsUploadingImage] = useState(false)
   const [isSocketConnected, setIsSocketConnected] = useState(false)
-  const [showMobileChat, setShowMobileChat] = useState(false)
   const [isBlockingUser, setIsBlockingUser] = useState(false)
-  const [mutedConversationIds, setMutedConversationIds] = useState<string[]>([])
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -613,6 +606,15 @@ function ChatContent() {
   const currentUserIdRef = useRef<string | undefined>(undefined)
   const pendingTimeoutsRef = useRef<Map<string, number>>(new Map())
   const mutedConversationIdsRef = useRef<Set<string>>(new Set())
+  const draftText = composerForm.watch('message')
+  const pendingImageFile = composerForm.watch('imageFile') ?? null
+  const messageFieldState = composerForm.getFieldState('message', composerForm.formState)
+  const imageFieldState = composerForm.getFieldState('imageFile', composerForm.formState)
+  const shouldShowComposerError =
+    composerForm.formState.submitCount > 0 || messageFieldState.isTouched || imageFieldState.isTouched
+  const composerError = shouldShowComposerError
+    ? imageFieldState.error?.message ?? messageFieldState.error?.message
+    : undefined
 
   const selectedConversation = useMemo(
     () => conversations.find((conversation) => conversation.id === selectedConversationId) ?? null,
@@ -627,9 +629,7 @@ function ChatContent() {
     }
   }, [])
 
-  const clearPendingImage = useCallback(() => {
-    setPendingImageFile(null)
-    setComposerError(null)
+  const clearPendingImagePreview = useCallback(() => {
     setPendingImagePreview((previous) => {
       if (previous) {
         URL.revokeObjectURL(previous)
@@ -637,6 +637,18 @@ function ChatContent() {
       return null
     })
   }, [])
+
+  const clearPendingImage = useCallback(() => {
+    composerForm.setValue('imageFile', undefined, {
+      shouldDirty: true,
+      shouldTouch: true,
+    })
+    composerForm.clearErrors('imageFile')
+    clearPendingImagePreview()
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }, [clearPendingImagePreview, composerForm])
 
   const markMessageFailed = useCallback(
     (clientTempId: string, message: string) => {
@@ -652,22 +664,9 @@ function ChatContent() {
   )
 
   const toggleMute = useCallback((conversationId: string) => {
-    setMutedConversationIds((previous) => {
-      const next = new Set(previous)
-      const isMuted = next.has(conversationId)
-
-      if (isMuted) {
-        next.delete(conversationId)
-      } else {
-        next.add(conversationId)
-      }
-
-      saveMutedConversations(next)
-      toast.success(isMuted ? 'Đã bật thông báo hội thoại' : 'Đã tắt thông báo hội thoại')
-
-      return Array.from(next)
-    })
-  }, [])
+    const isMuted = toggleMutedConversation(conversationId)
+    toast.success(isMuted ? 'Đã tắt thông báo hội thoại' : 'Đã bật thông báo hội thoại')
+  }, [toggleMutedConversation])
 
   const handleViewProfile = useCallback(() => {
     const otherParticipant = selectedConversation?.participants.find(
@@ -717,7 +716,13 @@ function ChatContent() {
     } finally {
       setIsBlockingUser(false)
     }
-  }, [currentUserId, isBlockingUser, selectedConversation])
+  }, [
+    currentUserId,
+    isBlockingUser,
+    selectedConversation,
+    setSelectedConversationId,
+    setShowMobileChat,
+  ])
 
   const isSelectedConversationMuted = selectedConversationId
     ? mutedConversationIds.includes(selectedConversationId)
@@ -745,7 +750,10 @@ function ChatContent() {
       }
 
       try {
-        const data = await conversationsApi.list()
+        const data = await queryClient.fetchQuery({
+          queryKey: queryKeys.conversations.list(),
+          queryFn: () => conversationsApi.list(),
+        })
         setConversations(data)
 
         if (!data.length) {
@@ -783,7 +791,13 @@ function ChatContent() {
         }
       }
     },
-    [currentUserId, presetConversationId],
+    [
+      currentUserId,
+      presetConversationId,
+      queryClient,
+      setSelectedConversationId,
+      setShowMobileChat,
+    ],
   )
 
   const syncMessages = useCallback(
@@ -793,9 +807,16 @@ function ChatContent() {
       }
 
       try {
-        const result = await conversationsApi.messages(conversationId, {
-          page: 1,
-          limit: 100,
+        const result = await queryClient.fetchQuery({
+          queryKey: queryKeys.conversations.messages(conversationId, {
+            page: 1,
+            limit: 100,
+          }),
+          queryFn: () =>
+            conversationsApi.messages(conversationId, {
+              page: 1,
+              limit: 100,
+            }),
         })
         const normalized = result.data.map((message) => ({
           ...message,
@@ -816,7 +837,7 @@ function ChatContent() {
         }
       }
     },
-    [currentUserId],
+    [currentUserId, queryClient],
   )
 
   const syncConversationsRef = useRef(syncConversations)
@@ -839,13 +860,17 @@ function ChatContent() {
   }, [currentUserId])
 
   useEffect(() => {
-    const muted = readMutedConversations()
-    setMutedConversationIds(Array.from(muted))
-  }, [])
-
-  useEffect(() => {
     mutedConversationIdsRef.current = new Set(mutedConversationIds)
   }, [mutedConversationIds])
+
+  useEffect(() => {
+    if (!currentUserId) {
+      clearRuntimeState()
+      setConversations([])
+      setMessages([])
+      setLoading(false)
+    }
+  }, [clearRuntimeState, currentUserId])
 
   useEffect(() => {
     void syncConversations({ withLoading: true, preferPreset: true })
@@ -873,7 +898,15 @@ function ChatContent() {
     }
 
     void run()
-  }, [currentUserId, productId, sellerId, syncConversations, syncMessages])
+  }, [
+    currentUserId,
+    productId,
+    sellerId,
+    setSelectedConversationId,
+    setShowMobileChat,
+    syncConversations,
+    syncMessages,
+  ])
 
   useEffect(() => {
     if (!selectedConversationId || !currentUserId) {
@@ -1040,8 +1073,25 @@ function ChatContent() {
   }, [messages, selectedConversationId])
 
   useEffect(() => {
-    setComposerError(null)
-  }, [selectedConversationId])
+    if (composerForm.getValues('message') !== selectedConversationDraft) {
+      composerForm.setValue('message', selectedConversationDraft, {
+        shouldDirty: selectedConversationDraft.length > 0,
+        shouldTouch: false,
+      })
+    }
+  }, [composerForm, selectedConversationDraft])
+
+  useEffect(() => {
+    composerForm.setValue('imageFile', undefined, {
+      shouldDirty: false,
+      shouldTouch: false,
+    })
+    composerForm.clearErrors('imageFile')
+    clearPendingImagePreview()
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }, [clearPendingImagePreview, composerForm, selectedConversationId])
 
   useEffect(() => {
     const pendingTimeouts = pendingTimeoutsRef.current
@@ -1055,34 +1105,54 @@ function ChatContent() {
     }
   }, [clearPendingImage])
 
-  const handleImageSelection = useCallback((file?: File) => {
-    if (!file) {
-      return
-    }
-
-    const parsed = chatImageFileSchema.safeParse(file)
-    if (!parsed.success) {
-      setComposerError(parsed.error.issues[0]?.message ?? 'Ảnh tải lên không hợp lệ')
-      return
-    }
-
-    setComposerError(null)
-    setPendingImageFile(file)
-    setPendingImagePreview((previous) => {
-      if (previous) {
-        URL.revokeObjectURL(previous)
+  const handleImageSelection = useCallback(
+    async (file?: File) => {
+      if (!file) {
+        return
       }
-      return URL.createObjectURL(file)
-    })
-  }, [])
 
-  const handleSendMessage = useCallback(async () => {
+      composerForm.setValue('imageFile', file, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      })
+
+      const isValid = await composerForm.trigger('imageFile')
+      if (!isValid) {
+        composerForm.setValue('imageFile', undefined, {
+          shouldDirty: true,
+          shouldTouch: true,
+        })
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ''
+        }
+        return
+      }
+
+      composerForm.clearErrors('message')
+      clearPendingImagePreview()
+      setPendingImagePreview(URL.createObjectURL(file))
+    },
+    [clearPendingImagePreview, composerForm],
+  )
+
+  const handleMessageChange = useCallback(
+    (value: string) => {
+      composerForm.setValue('message', value, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: composerForm.formState.submitCount > 0,
+      })
+
+      if (selectedConversationId) {
+        setDraftText(selectedConversationId, value)
+      }
+    },
+    [composerForm, selectedConversationId, setDraftText],
+  )
+
+  const handleSendMessage = composerForm.handleSubmit(async (values) => {
     if (!selectedConversation || !currentUserId) {
-      return
-    }
-
-    const content = draftText.trim()
-    if (!content && !pendingImageFile) {
       return
     }
 
@@ -1090,14 +1160,17 @@ function ChatContent() {
       return
     }
 
+    const content = values.message.trim()
+    const selectedImageFile = values.imageFile
+
     setIsSending(true)
 
     try {
       let imageUrl: string | undefined
-      if (pendingImageFile) {
+      if (selectedImageFile) {
         setIsUploadingImage(true)
         try {
-          const uploadResult = await uploadsApi.uploadImages([pendingImageFile])
+          const uploadResult = await uploadsApi.uploadImages([selectedImageFile])
           imageUrl = uploadResult.data[0]?.url
           if (!imageUrl) {
             throw new Error('Image upload returned empty URL')
@@ -1128,8 +1201,15 @@ function ChatContent() {
       }
 
       setMessages((previous) => [...previous, optimisticMessage])
-      setDraftText('')
-      clearPendingImage()
+      composerForm.reset({
+        message: '',
+        imageFile: undefined,
+      })
+      clearDraft(selectedConversation.id)
+      clearPendingImagePreview()
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
 
       const payload = {
         content: content || undefined,
@@ -1171,16 +1251,7 @@ function ChatContent() {
     } finally {
       setIsSending(false)
     }
-  }, [
-    clearPendingImage,
-    currentUserId,
-    draftText,
-    isSending,
-    isUploadingImage,
-    markMessageFailed,
-    pendingImageFile,
-    selectedConversation,
-  ])
+  })
 
   if (loading) {
     return (
@@ -1233,19 +1304,16 @@ function ChatContent() {
               selectedConversation={selectedConversation}
               currentUserId={currentUserId}
               messages={messages}
-              draftText={draftText}
+              message={draftText}
               hasPendingImage={Boolean(pendingImageFile)}
               pendingImagePreview={pendingImagePreview}
               composerError={composerError}
               isSending={isSending}
               isUploadingImage={isUploadingImage}
-              onDraftTextChange={(value) => {
-                setDraftText(value)
-                if (composerError) {
-                  setComposerError(null)
-                }
+              onMessageChange={handleMessageChange}
+              onSendMessage={() => {
+                void handleSendMessage()
               }}
-              onSendMessage={handleSendMessage}
               onPickImage={() => fileInputRef.current?.click()}
               onRemovePendingImage={clearPendingImage}
               onBackMobile={() => setShowMobileChat(false)}
@@ -1280,19 +1348,16 @@ function ChatContent() {
               selectedConversation={selectedConversation}
               currentUserId={currentUserId}
               messages={messages}
-              draftText={draftText}
+              message={draftText}
               hasPendingImage={Boolean(pendingImageFile)}
               pendingImagePreview={pendingImagePreview}
               composerError={composerError}
               isSending={isSending}
               isUploadingImage={isUploadingImage}
-              onDraftTextChange={(value) => {
-                setDraftText(value)
-                if (composerError) {
-                  setComposerError(null)
-                }
+              onMessageChange={handleMessageChange}
+              onSendMessage={() => {
+                void handleSendMessage()
               }}
-              onSendMessage={handleSendMessage}
               onPickImage={() => fileInputRef.current?.click()}
               onRemovePendingImage={clearPendingImage}
               onBackMobile={() => setShowMobileChat(false)}

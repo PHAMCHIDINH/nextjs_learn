@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { Category, Condition, Department } from '@/lib/types'
+import type { Category, Condition, Department, ProductStatus } from '@/lib/types'
 
 export const INT32_MAX = 2_147_483_647
 export const MAX_IMAGE_SIZE = 5 * 1024 * 1024
@@ -9,6 +9,7 @@ export const MAX_LISTING_IMAGE_COUNT = 5
 const categoryValues = ['textbook', 'electronics', 'dorm', 'study', 'other'] as const satisfies readonly Category[]
 const conditionValues = ['new', 'like-new', 'good', 'fair'] as const satisfies readonly Condition[]
 const departmentValues = ['cntt', 'kinhtoe', 'marketing', 'ngoaingu', 'luat', 'quanly', 'kythuat'] as const satisfies readonly Department[]
+const statusValues = ['selling', 'reserved', 'sold'] as const satisfies readonly ProductStatus[]
 
 const requiredCategorySchema = z
   .union([z.enum(categoryValues), z.literal('')])
@@ -107,6 +108,18 @@ export const profileFormSchema = z.object({
   department: z.enum(departmentValues, { error: 'Vui lòng chọn ngành học' }),
 })
 
+export const marketplaceFilterSchema = z.object({
+  search: z.string().trim(),
+  sortBy: z.enum(['newest', 'oldest', 'price-asc', 'price-desc', 'popular']),
+  priceRange: z
+    .tuple([z.number().min(0), z.number().min(0)])
+    .refine(([minPrice, maxPrice]) => minPrice <= maxPrice, 'Khoảng giá không hợp lệ'),
+  selectedCategories: z.array(z.enum(categoryValues)),
+  selectedConditions: z.array(z.enum(conditionValues)),
+  selectedDepartments: z.array(z.enum(departmentValues)),
+  selectedStatuses: z.array(z.enum(statusValues)),
+})
+
 const imageFileSchema = z.custom<File>((value) => value instanceof File, {
   message: 'Tệp tải lên không hợp lệ',
 })
@@ -165,6 +178,21 @@ export const chatImageFileSchema = imageFileSchema.superRefine((file, ctx) => {
   }
 })
 
+export const chatComposerSchema = z
+  .object({
+    message: z.string().trim().max(5000, 'Tin nhắn không được vượt quá 5000 ký tự'),
+    imageFile: chatImageFileSchema.optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (!value.message.trim() && !value.imageFile) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Vui lòng nhập tin nhắn hoặc chọn ảnh',
+        path: ['message'],
+      })
+    }
+  })
+
 export type LoginFormValues = z.infer<typeof loginSchema>
 export type RegisterFormValues = z.infer<typeof registerSchema>
 export type OtpFormValues = z.infer<typeof otpSchema>
@@ -172,3 +200,5 @@ export type ListingFormSchemaInputValues = z.input<typeof listingFormSchema>
 export type ListingFormSchemaValues = z.output<typeof listingFormSchema>
 export type ReportFormValues = z.infer<typeof reportFormSchema>
 export type ProfileFormValues = z.infer<typeof profileFormSchema>
+export type MarketplaceFilterFormValues = z.infer<typeof marketplaceFilterSchema>
+export type ChatComposerFormValues = z.infer<typeof chatComposerSchema>

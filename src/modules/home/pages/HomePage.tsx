@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import {
   ArrowRight,
   BookOpen,
@@ -19,13 +19,13 @@ import {
   Warehouse,
 } from 'lucide-react'
 import { PageShell } from '@/components/page-shell'
-import { statsApi } from '@/lib/api'
+import { usePublicStatsQuery } from '@/modules/home/services/stats.queries'
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Separator } from '@/shared/ui/separator'
-import type { Category, PublicStats } from '@/lib/types'
+import type { Category } from '@/lib/types'
 
 const categorySpotlights: Array<{
   key: Category
@@ -127,30 +127,7 @@ const testimonials = [
 ]
 
 export default function HomePage() {
-  const [stats, setStats] = useState<PublicStats | null>(null)
-
-  useEffect(() => {
-    let mounted = true
-
-    const run = async () => {
-      try {
-        const response = await statsApi.public()
-        if (mounted) {
-          setStats(response)
-        }
-      } catch {
-        if (mounted) {
-          setStats(null)
-        }
-      }
-    }
-
-    void run()
-
-    return () => {
-      mounted = false
-    }
-  }, [])
+  const { data: stats } = usePublicStatsQuery()
 
   const storyStats = useMemo(() => {
     const formatCount = (value: number) => `${new Intl.NumberFormat('vi-VN').format(value)}+`

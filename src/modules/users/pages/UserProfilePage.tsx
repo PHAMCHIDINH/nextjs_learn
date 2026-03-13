@@ -1,12 +1,15 @@
 'use client'
 
-import { use, useEffect, useState } from 'react'
+import { use, useMemo } from 'react'
 import Link from 'next/link'
 import { BadgeCheck, Loader2, MessageSquare, Star } from 'lucide-react'
 import { PageShell } from '@/components/page-shell'
 import { ProductCard } from '@/components/product-card'
-import { usersApi } from '@/lib/api'
-import { departmentLabels, type Product, type PublicUserProfile } from '@/lib/types'
+import {
+  usePublicUserListingsInfiniteQuery,
+  usePublicUserProfileQuery,
+} from '@/modules/users/services/users.queries'
+import { departmentLabels } from '@/lib/types'
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent } from '@/shared/ui/card'
@@ -20,63 +23,32 @@ const PAGE_SIZE = 12
 export default function UserProfilePage({ params }: UserProfilePageProps) {
   const { id } = use(params)
 
-  const [profile, setProfile] = useState<PublicUserProfile | null>(null)
-  const [products, setProducts] = useState<Product[]>([])
-  const [page, setPage] = useState(1)
-  const [hasMore, setHasMore] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const profileQuery = usePublicUserProfileQuery(id)
+  const listingsQuery = usePublicUserListingsInfiniteQuery({
+    id,
+    params: { status: 'selling' },
+    pageSize: PAGE_SIZE,
+  })
 
-  useEffect(() => {
-    const run = async () => {
-      setLoading(true)
-      setError(null)
-
-      try {
-        const [profileResponse, listingsResponse] = await Promise.all([
-          usersApi.getPublicProfile(id),
-          usersApi.publicListings(id, {
-            page: 1,
-            limit: PAGE_SIZE,
-            status: 'selling',
-          }),
-        ])
-
-        setProfile(profileResponse)
-        setProducts(listingsResponse.data)
-        setPage(1)
-        setHasMore(listingsResponse.meta.page < listingsResponse.meta.totalPages)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Khong tai duoc thong tin nguoi dung')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    void run()
-  }, [id])
+  const profile = profileQuery.data ?? null
+  const products = useMemo(
+    () => listingsQuery.data?.pages.flatMap((page) => page.data) ?? [],
+    [listingsQuery.data?.pages],
+  )
+  const loading = profileQuery.isPending || listingsQuery.isPending
+  const loadingMore = listingsQuery.isFetchingNextPage
+  const hasMore = Boolean(listingsQuery.hasNextPage)
+  const error =
+    (profileQuery.error instanceof Error && profileQuery.error.message) ||
+    (listingsQuery.error instanceof Error && listingsQuery.error.message) ||
+    null
 
   const loadMore = async () => {
     if (!hasMore || loadingMore) {
       return
     }
 
-    const nextPage = page + 1
-    setLoadingMore(true)
-    try {
-      const response = await usersApi.publicListings(id, {
-        page: nextPage,
-        limit: PAGE_SIZE,
-        status: 'selling',
-      })
-
-      setProducts((previous) => [...previous, ...response.data])
-      setPage(nextPage)
-      setHasMore(response.meta.page < response.meta.totalPages)
-    } finally {
-      setLoadingMore(false)
-    }
+    await listingsQuery.fetchNextPage()
   }
 
   if (loading) {

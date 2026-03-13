@@ -5,16 +5,16 @@ import Link from 'next/link'
 import Image from 'next/image'
 import type { LucideIcon } from 'lucide-react'
 import { ArrowLeft, ImagePlus, Info, Loader2, X } from 'lucide-react'
-import { Controller, type Control, type FieldErrors, type FieldNamesMarkedBoolean, type UseFormRegister, type UseFormSetValue, type UseFormTrigger } from 'react-hook-form'
+import { Controller, useFormContext } from 'react-hook-form'
 import { cn } from '@/lib/utils'
 import { conditionLabels, departmentLabels } from '@/lib/types'
 import type { EditableListingImage, ListingCategoryOption, ListingFormValues } from '../hooks/use-listing-editor'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { FieldError } from '@/shared/ui/field-error'
+import { FormFieldErrorMessage, RHFSelect, useFormFieldError } from '@/shared/ui/form'
 import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
 import { Textarea } from '@/shared/ui/textarea'
 
 type ListingEditorFormProps = {
@@ -23,14 +23,6 @@ type ListingEditorFormProps = {
   submitLabel: string
   submitPendingLabel: string
   submitIcon: LucideIcon
-  formData: ListingFormValues
-  control: Control<ListingFormValues>
-  register: UseFormRegister<ListingFormValues>
-  setValue: UseFormSetValue<ListingFormValues>
-  trigger: UseFormTrigger<ListingFormValues>
-  errors: FieldErrors<ListingFormValues>
-  touchedFields: FieldNamesMarkedBoolean<ListingFormValues>
-  submitCount: number
   images: EditableListingImage[]
   imageError: string | null
   categories: ListingCategoryOption[]
@@ -54,14 +46,6 @@ export function ListingEditorForm({
   submitLabel,
   submitPendingLabel,
   submitIcon: SubmitIcon,
-  formData,
-  control,
-  register,
-  setValue,
-  trigger,
-  errors,
-  touchedFields,
-  submitCount,
   images,
   imageError,
   categories,
@@ -78,16 +62,13 @@ export function ListingEditorForm({
   formatCurrency,
   sidebar,
 }: ListingEditorFormProps) {
-  const shouldShowError = (field: keyof ListingFormValues) =>
-    submitCount > 0 || Boolean(touchedFields[field])
-
-  const titleError = shouldShowError('title') ? errors.title?.message : undefined
-  const descriptionError = shouldShowError('description') ? errors.description?.message : undefined
-  const priceError = shouldShowError('price') ? errors.price?.message : undefined
-  const originalPriceError = shouldShowError('originalPrice') ? errors.originalPrice?.message : undefined
-  const categoryError = shouldShowError('category') ? errors.category?.message : undefined
-  const conditionError = shouldShowError('condition') ? errors.condition?.message : undefined
-  const departmentError = shouldShowError('department') ? errors.department?.message : undefined
+  const form = useFormContext<ListingFormValues>()
+  const title = form.watch('title')
+  const description = form.watch('description')
+  const titleError = useFormFieldError<ListingFormValues>('title')
+  const descriptionError = useFormFieldError<ListingFormValues>('description')
+  const priceError = useFormFieldError<ListingFormValues>('price')
+  const originalPriceError = useFormFieldError<ListingFormValues>('originalPrice')
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -182,13 +163,13 @@ export function ListingEditorForm({
               <Input
                 id="title"
                 placeholder="VD: Giáo trình Kinh tế Vi mô - gần như mới"
-                {...register('title')}
+                {...form.register('title')}
                 maxLength={150}
                 className="h-11 rounded-xl"
                 aria-invalid={Boolean(titleError)}
               />
-              <FieldError message={titleError} />
-              <p className="text-right text-xs text-muted-foreground">{formData.title.length}/150</p>
+              <FormFieldErrorMessage<ListingFormValues> name="title" />
+              <p className="text-right text-xs text-muted-foreground">{title.length}/150</p>
             </div>
 
             <div className="space-y-2">
@@ -196,14 +177,14 @@ export function ListingEditorForm({
               <Textarea
                 id="description"
                 placeholder="Mô tả tình trạng, thời gian đã dùng, lý do bán, nơi có thể xem hàng..."
-                {...register('description')}
+                {...form.register('description')}
                 rows={6}
                 maxLength={2000}
                 className="rounded-2xl"
                 aria-invalid={Boolean(descriptionError)}
               />
-              <FieldError message={descriptionError} />
-              <p className="text-right text-xs text-muted-foreground">{formData.description.length}/2000</p>
+              <FormFieldErrorMessage<ListingFormValues> name="description" />
+              <p className="text-right text-xs text-muted-foreground">{description.length}/2000</p>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -211,7 +192,7 @@ export function ListingEditorForm({
                 <Label htmlFor="price">Giá bán (VND)</Label>
                 <Controller
                   name="price"
-                  control={control}
+                  control={form.control}
                   render={({ field }) => (
                     <Input
                       id="price"
@@ -219,27 +200,21 @@ export function ListingEditorForm({
                       value={formatCurrency(field.value)}
                       onChange={(event) => {
                         const rawValue = event.target.value.replace(/\D/g, '')
-                        setValue('price', rawValue, {
-                          shouldDirty: true,
-                          shouldValidate: submitCount > 0 || Boolean(touchedFields.price),
-                        })
+                        field.onChange(rawValue)
                       }}
-                      onBlur={() => {
-                        field.onBlur()
-                        void trigger('price')
-                      }}
+                      onBlur={field.onBlur}
                       className="h-11 rounded-xl"
                       aria-invalid={Boolean(priceError)}
                     />
                   )}
                 />
-                <FieldError message={priceError} />
+                <FormFieldErrorMessage<ListingFormValues> name="price" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="originalPrice">Giá gốc (VND)</Label>
                 <Controller
                   name="originalPrice"
-                  control={control}
+                  control={form.control}
                   render={({ field }) => (
                     <Input
                       id="originalPrice"
@@ -247,21 +222,15 @@ export function ListingEditorForm({
                       value={formatCurrency(field.value)}
                       onChange={(event) => {
                         const rawValue = event.target.value.replace(/\D/g, '')
-                        setValue('originalPrice', rawValue, {
-                          shouldDirty: true,
-                          shouldValidate: submitCount > 0 || Boolean(touchedFields.originalPrice),
-                        })
+                        field.onChange(rawValue)
                       }}
-                      onBlur={() => {
-                        field.onBlur()
-                        void trigger('originalPrice')
-                      }}
+                      onBlur={field.onBlur}
                       className="h-11 rounded-xl"
                       aria-invalid={Boolean(originalPriceError)}
                     />
                   )}
                 />
-                <FieldError message={originalPriceError} />
+                <FormFieldErrorMessage<ListingFormValues> name="originalPrice" />
               </div>
             </div>
           </CardContent>
@@ -275,99 +244,36 @@ export function ListingEditorForm({
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Danh mục</Label>
-                <Controller
+                <RHFSelect<ListingFormValues>
                   name="category"
-                  control={control}
-                  render={({ field }) => (
-                    <Select
-                      value={field.value}
-                      onValueChange={(value) => {
-                        setValue('category', value as ListingFormValues['category'], {
-                          shouldDirty: true,
-                          shouldTouch: true,
-                          shouldValidate: true,
-                        })
-                      }}
-                    >
-                      <SelectTrigger className="h-11 rounded-xl" aria-invalid={Boolean(categoryError)} onBlur={field.onBlur}>
-                        <SelectValue placeholder="Chọn danh mục" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map((item) => (
-                          <SelectItem key={item.key} value={item.key}>
-                            {item.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
+                  placeholder="Chọn danh mục"
+                  triggerClassName="h-11 rounded-xl"
+                  options={categories.map((item) => ({ value: item.key, label: item.name }))}
                 />
-                <FieldError message={categoryError} />
+                <FormFieldErrorMessage<ListingFormValues> name="category" />
               </div>
 
               <div className="space-y-2">
                 <Label>Tình trạng</Label>
-                <Controller
+                <RHFSelect<ListingFormValues>
                   name="condition"
-                  control={control}
-                  render={({ field }) => (
-                    <Select
-                      value={field.value}
-                      onValueChange={(value) => {
-                        setValue('condition', value as ListingFormValues['condition'], {
-                          shouldDirty: true,
-                          shouldTouch: true,
-                          shouldValidate: true,
-                        })
-                      }}
-                    >
-                      <SelectTrigger className="h-11 rounded-xl" aria-invalid={Boolean(conditionError)} onBlur={field.onBlur}>
-                        <SelectValue placeholder="Chọn tình trạng" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(conditionLabels).map(([key, label]) => (
-                          <SelectItem key={key} value={key}>
-                            {label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
+                  placeholder="Chọn tình trạng"
+                  triggerClassName="h-11 rounded-xl"
+                  options={Object.entries(conditionLabels).map(([key, label]) => ({ value: key, label }))}
                 />
-                <FieldError message={conditionError} />
+                <FormFieldErrorMessage<ListingFormValues> name="condition" />
               </div>
             </div>
 
             <div className="space-y-2">
               <Label>Ngành học liên quan</Label>
-              <Controller
+              <RHFSelect<ListingFormValues>
                 name="department"
-                control={control}
-                render={({ field }) => (
-                  <Select
-                    value={field.value}
-                    onValueChange={(value) => {
-                      setValue('department', value as ListingFormValues['department'], {
-                        shouldDirty: true,
-                        shouldTouch: true,
-                        shouldValidate: true,
-                      })
-                    }}
-                  >
-                    <SelectTrigger className="h-11 rounded-xl" aria-invalid={Boolean(departmentError)} onBlur={field.onBlur}>
-                      <SelectValue placeholder="Chọn ngành học" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(departmentLabels).map(([key, label]) => (
-                        <SelectItem key={key} value={key}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+                placeholder="Chọn ngành học"
+                triggerClassName="h-11 rounded-xl"
+                options={Object.entries(departmentLabels).map(([key, label]) => ({ value: key, label }))}
               />
-              <FieldError message={departmentError} />
+              <FormFieldErrorMessage<ListingFormValues> name="department" />
             </div>
           </CardContent>
         </Card>

@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   Package,
   Flag,
@@ -34,65 +35,95 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/shared/ui/alert-dialog'
+import { queryKeys } from '@/core/query/keys'
 import { cn, formatPrice } from '@/lib/utils'
-import { adminApi, listingsApi, usersApi } from '@/lib/api'
 import { categoryLabels, conditionLabels, departmentLabels } from '@/lib/types'
-import type { Product, Report } from '@/lib/types'
 import { useAuth } from '@/core/providers/auth-provider'
+import {
+  useApproveListingMutation,
+  useDismissReportMutation,
+  usePendingListingsInfiniteQuery,
+  usePendingReportsCountQuery,
+  useRejectListingMutation,
+  useReportsInfiniteQuery,
+  useResolveReportMutation,
+} from '@/modules/admin/services/admin.queries'
+import { useListingsQuery } from '@/modules/listings/services/listings.queries'
+import { useUsersListQuery } from '@/modules/users/services/users.queries'
 
 const PAGE_SIZE = 12
 
 export default function AdminPage() {
   const { user, loading: authLoading } = useAuth()
+  const queryClient = useQueryClient()
+  const isAdmin = user?.role === 'admin'
 
-  const [pendingList, setPendingList] = useState<Product[]>([])
-  const [reportsList, setReportsList] = useState<Report[]>([])
-  const [pendingPage, setPendingPage] = useState(1)
-  const [reportsPage, setReportsPage] = useState(1)
-  const [pendingHasMore, setPendingHasMore] = useState(false)
-  const [reportsHasMore, setReportsHasMore] = useState(false)
-  const [pendingTotal, setPendingTotal] = useState(0)
-  const [pendingReportsTotal, setPendingReportsTotal] = useState(0)
-  const [loadingMorePending, setLoadingMorePending] = useState(false)
-  const [loadingMoreReports, setLoadingMoreReports] = useState(false)
-  const [userCount, setUserCount] = useState(0)
-  const [totalListings, setTotalListings] = useState(0)
-  const [loading, setLoading] = useState(true)
+  const pendingQuery = usePendingListingsInfiniteQuery({
+    params: {},
+    pageSize: PAGE_SIZE,
+    enabled: isAdmin,
+  })
+  const reportsQuery = useReportsInfiniteQuery({
+    params: {},
+    pageSize: PAGE_SIZE,
+    enabled: isAdmin,
+  })
+  const pendingReportsCountQuery = usePendingReportsCountQuery(isAdmin)
+  const usersQuery = useUsersListQuery(isAdmin)
+  const approvedMetaQuery = useListingsQuery({
+    params: { approvalStatus: 'approved', page: 1, limit: 1 },
+    enabled: isAdmin,
+  })
+  const rejectedMetaQuery = useListingsQuery({
+    params: { approvalStatus: 'rejected', page: 1, limit: 1 },
+    enabled: isAdmin,
+  })
 
-  const loadAdminData = async () => {
-    setLoading(true)
-    try {
-      const [pending, reports, reportsPending, users, approvedMeta, rejectedMeta] = await Promise.all([
-        adminApi.pendingListings({ page: 1, limit: PAGE_SIZE }),
-        adminApi.reports({ page: 1, limit: PAGE_SIZE }),
-        adminApi.reports({ status: 'pending', page: 1, limit: 1 }),
-        usersApi.list(),
-        listingsApi.list({ approvalStatus: 'approved', page: 1, limit: 1 }),
-        listingsApi.list({ approvalStatus: 'rejected', page: 1, limit: 1 }),
-      ])
+  const approveListingMutation = useApproveListingMutation()
+  const rejectListingMutation = useRejectListingMutation()
+  const resolveReportMutation = useResolveReportMutation()
+  const dismissReportMutation = useDismissReportMutation()
 
-      setPendingList(pending.data)
-      setReportsList(reports.data)
-      setPendingPage(1)
-      setReportsPage(1)
-      setPendingHasMore(pending.meta.page < pending.meta.totalPages)
-      setReportsHasMore(reports.meta.page < reports.meta.totalPages)
-      setPendingTotal(pending.meta.total)
-      setPendingReportsTotal(reportsPending.meta.total)
-      setUserCount(users.length)
-      setTotalListings(approvedMeta.meta.total + pending.meta.total + rejectedMeta.meta.total)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Không tải dữ liệu admin được')
-    } finally {
-      setLoading(false)
-    }
-  }
+  const pendingList = pendingQuery.data?.pages.flatMap((page) => page.data) ?? []
+  const reportsList = reportsQuery.data?.pages.flatMap((page) => page.data) ?? []
+  const pendingTotal = pendingQuery.data?.pages[0]?.meta.total ?? 0
+  const pendingReportsTotal = pendingReportsCountQuery.data?.meta.total ?? 0
+  const userCount = usersQuery.data?.length ?? 0
+  const totalListings =
+    (approvedMetaQuery.data?.meta.total ?? 0) +
+    pendingTotal +
+    (rejectedMetaQuery.data?.meta.total ?? 0)
+
+  const loading =
+    authLoading ||
+    (isAdmin &&
+      (pendingQuery.isPending ||
+        reportsQuery.isPending ||
+        pendingReportsCountQuery.isPending ||
+        usersQuery.isPending ||
+        approvedMetaQuery.isPending ||
+        rejectedMetaQuery.isPending))
 
   useEffect(() => {
-    if (user?.role === 'admin') {
-      loadAdminData()
+    const error =
+      pendingQuery.error ??
+      reportsQuery.error ??
+      pendingReportsCountQuery.error ??
+      usersQuery.error ??
+      approvedMetaQuery.error ??
+      rejectedMetaQuery.error
+
+    if (error instanceof Error) {
+      toast.error(error.message)
     }
-  }, [user?.id, user?.role])
+  }, [
+    approvedMetaQuery.error,
+    pendingQuery.error,
+    pendingReportsCountQuery.error,
+    rejectedMetaQuery.error,
+    reportsQuery.error,
+    usersQuery.error,
+  ])
 
   const stats = useMemo(
     () => [
@@ -124,91 +155,67 @@ export default function AdminPage() {
 
   const handleApprove = async (productId: string) => {
     try {
-      await adminApi.approveListing(productId)
-      setPendingList((prev) => prev.filter((p) => p.id !== productId))
-      setPendingTotal((prev) => Math.max(0, prev - 1))
+      await approveListingMutation.mutateAsync(productId)
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.admin.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.listings.all }),
+      ])
       toast.success('Đã duyệt bài đăng')
-    } catch {
-      toast.error('Không duyệt được bài đăng')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Không duyệt được bài đăng')
     }
   }
 
   const handleReject = async (productId: string) => {
     try {
-      await adminApi.rejectListing(productId)
-      setPendingList((prev) => prev.filter((p) => p.id !== productId))
-      setPendingTotal((prev) => Math.max(0, prev - 1))
+      await rejectListingMutation.mutateAsync(productId)
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.admin.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.listings.all }),
+      ])
       toast.success('Đã từ chối bài đăng')
-    } catch {
-      toast.error('Không từ chối được bài đăng')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Không từ chối được bài đăng')
     }
   }
 
   const handleResolveReport = async (reportId: string) => {
     try {
-      const previousStatus = reportsList.find((item) => item.id === reportId)?.status
-      await adminApi.resolveReport(reportId)
-      setReportsList((prev) => prev.map((r) => (r.id === reportId ? { ...r, status: 'resolved' } : r)))
-      if (previousStatus === 'pending') {
-        setPendingReportsTotal((prev) => Math.max(0, prev - 1))
-      }
+      await resolveReportMutation.mutateAsync(reportId)
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.admin.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.listings.all }),
+      ])
       toast.success('Đã xử lý báo cáo')
-    } catch {
-      toast.error('Không xử lý được báo cáo')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Không xử lý được báo cáo')
     }
   }
 
   const handleDismissReport = async (reportId: string) => {
     try {
-      const previousStatus = reportsList.find((item) => item.id === reportId)?.status
-      await adminApi.dismissReport(reportId)
-      setReportsList((prev) => prev.map((r) => (r.id === reportId ? { ...r, status: 'reviewed' } : r)))
-      if (previousStatus === 'pending') {
-        setPendingReportsTotal((prev) => Math.max(0, prev - 1))
-      }
+      await dismissReportMutation.mutateAsync(reportId)
+      await queryClient.invalidateQueries({ queryKey: queryKeys.admin.all })
       toast.success('Đã bỏ qua báo cáo')
-    } catch {
-      toast.error('Không cập nhật được báo cáo')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Không cập nhật được báo cáo')
     }
   }
 
   const loadMorePending = async () => {
-    if (!pendingHasMore || loadingMorePending) {
+    if (!pendingQuery.hasNextPage || pendingQuery.isFetchingNextPage) {
       return
     }
 
-    const nextPage = pendingPage + 1
-    setLoadingMorePending(true)
-    try {
-      const response = await adminApi.pendingListings({ page: nextPage, limit: PAGE_SIZE })
-      setPendingList((prev) => [...prev, ...response.data])
-      setPendingPage(nextPage)
-      setPendingHasMore(response.meta.page < response.meta.totalPages)
-      setPendingTotal(response.meta.total)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Không tải thêm bài đăng chờ duyệt')
-    } finally {
-      setLoadingMorePending(false)
-    }
+    await pendingQuery.fetchNextPage()
   }
 
   const loadMoreReports = async () => {
-    if (!reportsHasMore || loadingMoreReports) {
+    if (!reportsQuery.hasNextPage || reportsQuery.isFetchingNextPage) {
       return
     }
 
-    const nextPage = reportsPage + 1
-    setLoadingMoreReports(true)
-    try {
-      const response = await adminApi.reports({ page: nextPage, limit: PAGE_SIZE })
-      setReportsList((prev) => [...prev, ...response.data])
-      setReportsPage(nextPage)
-      setReportsHasMore(response.meta.page < response.meta.totalPages)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Không tải thêm báo cáo')
-    } finally {
-      setLoadingMoreReports(false)
-    }
+    await reportsQuery.fetchNextPage()
   }
 
   const reportStatusColors = {
@@ -223,7 +230,7 @@ export default function AdminPage() {
     resolved: 'Đã giải quyết',
   }
 
-  if (authLoading || loading) {
+  if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -346,7 +353,7 @@ export default function AdminPage() {
                               </div>
 
                               <div className="flex flex-row gap-2 lg:flex-col">
-                                <Button className="flex-1 gap-2 lg:flex-none" onClick={() => handleApprove(product.id)}>
+                                <Button className="flex-1 gap-2 lg:flex-none" onClick={() => void handleApprove(product.id)}>
                                   <CheckCircle2 className="h-4 w-4" />
                                   Duyệt
                                 </Button>
@@ -367,7 +374,7 @@ export default function AdminPage() {
                                     <AlertDialogFooter>
                                       <AlertDialogCancel>Hủy</AlertDialogCancel>
                                       <AlertDialogAction
-                                        onClick={() => handleReject(product.id)}
+                                        onClick={() => void handleReject(product.id)}
                                         className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                       >
                                         Từ chối
@@ -381,10 +388,10 @@ export default function AdminPage() {
                         ))}
                       </div>
 
-                      {pendingHasMore ? (
+                      {pendingQuery.hasNextPage ? (
                         <div className="text-center">
-                          <Button variant="outline" onClick={loadMorePending} disabled={loadingMorePending}>
-                            {loadingMorePending ? (
+                          <Button variant="outline" onClick={() => void loadMorePending()} disabled={pendingQuery.isFetchingNextPage}>
+                            {pendingQuery.isFetchingNextPage ? (
                               <>
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                 Đang tải...
@@ -477,7 +484,7 @@ export default function AdminPage() {
                                       <AlertDialogFooter>
                                         <AlertDialogCancel>Hủy</AlertDialogCancel>
                                         <AlertDialogAction
-                                          onClick={() => handleResolveReport(report.id)}
+                                          onClick={() => void handleResolveReport(report.id)}
                                           className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                         >
                                           Xóa bài đăng
@@ -485,7 +492,7 @@ export default function AdminPage() {
                                       </AlertDialogFooter>
                                     </AlertDialogContent>
                                   </AlertDialog>
-                                  <Button variant="outline" className="flex-1 lg:flex-none" onClick={() => handleDismissReport(report.id)}>
+                                  <Button variant="outline" className="flex-1 lg:flex-none" onClick={() => void handleDismissReport(report.id)}>
                                     Bỏ qua
                                   </Button>
                                 </div>
@@ -495,10 +502,10 @@ export default function AdminPage() {
                         ))}
                       </div>
 
-                      {reportsHasMore ? (
+                      {reportsQuery.hasNextPage ? (
                         <div className="text-center">
-                          <Button variant="outline" onClick={loadMoreReports} disabled={loadingMoreReports}>
-                            {loadingMoreReports ? (
+                          <Button variant="outline" onClick={() => void loadMoreReports()} disabled={reportsQuery.isFetchingNextPage}>
+                            {reportsQuery.isFetchingNextPage ? (
                               <>
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                 Đang tải...
