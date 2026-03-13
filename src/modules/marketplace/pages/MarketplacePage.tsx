@@ -16,12 +16,12 @@ import {
   Users,
   X,
 } from 'lucide-react'
-import { Footer } from '@/components/footer'
-import { Header } from '@/components/header'
+import { PageShell } from '@/components/page-shell'
 import { ProductCard, ProductCardSkeleton } from '@/components/product-card'
 import { listingsApi } from '@/lib/api'
 import type { Category, Condition, Department, Product, ProductStatus } from '@/lib/types'
 import { categoryLabels, conditionLabels, departmentLabels, statusLabels } from '@/lib/types'
+import { formatPriceCompact } from '@/lib/utils'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
@@ -64,14 +64,6 @@ function MarketplaceContent() {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  const formatPriceCompact = (price: number) => {
-    if (price >= 1_000_000) {
-      return `${(price / 1_000_000).toFixed(1)}tr`
-    }
-
-    return `${(price / 1_000).toFixed(0)}k`
-  }
 
   const toggleArrayItem = <T,>(array: T[], item: T): T[] =>
     array.includes(item) ? array.filter((value) => value !== item) : [...array, item]
@@ -367,9 +359,7 @@ function MarketplaceContent() {
   }, [error, loading, products, viewMode])
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,_rgba(250,250,249,1)_0%,_rgba(244,244,245,1)_100%)]">
-      <Header />
-
+    <PageShell className="bg-[linear-gradient(180deg,_rgba(250,250,249,1)_0%,_rgba(244,244,245,1)_100%)]">
       <main className="pb-12">
         <section className="border-b border-border/60 bg-[radial-gradient(circle_at_top_right,_rgba(34,197,94,0.16),_transparent_24%),radial-gradient(circle_at_top_left,_rgba(245,158,11,0.12),_transparent_22%)]">
           <div className="container mx-auto px-4 py-10 md:py-14">
@@ -601,9 +591,7 @@ function MarketplaceContent() {
           </div>
         </section>
       </main>
-
-      <Footer />
-    </div>
+    </PageShell>
   )
 }
 

@@ -88,10 +88,10 @@ export function ListingEditorForm({
                   key={`${image.publicId ?? image.url}-${index}`}
                   className="group relative aspect-square overflow-hidden rounded-2xl border border-border bg-muted"
                 >
-                  <Image src={image.url} alt={`Anh san pham ${index + 1}`} fill className="object-cover" />
+                  <Image src={image.url} alt={`Ảnh sản phẩm ${index + 1}`} fill className="object-cover" />
                   {index === 0 ? (
                     <div className="absolute left-2 top-2 rounded-full bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground">
-                      Anh bia
+                      Ảnh bìa
                     </div>
                   ) : null}
                   <button
@@ -133,7 +133,7 @@ export function ListingEditorForm({
                     <ImagePlus className="mb-2 h-6 w-6 text-muted-foreground" />
                   )}
                   <span className="text-xs font-medium text-muted-foreground">
-                    {isUploading ? 'Dang tai...' : 'Them anh'}
+                    {isUploading ? 'Đang tải...' : 'Thêm ảnh'}
                   </span>
                 </button>
               ) : null}
@@ -141,21 +141,21 @@ export function ListingEditorForm({
 
             <p className="mt-3 flex items-center gap-1 text-xs text-muted-foreground">
               <Info className="h-3.5 w-3.5" />
-              Chi chap nhan JPG/PNG/WEBP, moi anh toi da 5MB.
+              Chỉ chấp nhận JPG/PNG/WEBP, mỗi ảnh tối đa 5MB.
             </p>
           </CardContent>
         </Card>
 
         <Card className="border-border/70 bg-white/90 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg">Thong tin co ban</CardTitle>
+            <CardTitle className="text-lg">Thông tin cơ bản</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="title">Tieu de bai dang</Label>
+              <Label htmlFor="title">Tiêu đề bài đăng</Label>
               <Input
                 id="title"
-                placeholder="VD: Giao trinh Kinh te Vi mo - gan nhu moi"
+                placeholder="VD: Giáo trình Kinh tế Vi mô - gần như mới"
                 value={formData.title}
                 onChange={(event) =>
                   onFormDataChange((previous) => ({ ...previous, title: event.target.value }))
@@ -168,10 +168,10 @@ export function ListingEditorForm({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Mo ta chi tiet</Label>
+              <Label htmlFor="description">Mô tả chi tiết</Label>
               <Textarea
                 id="description"
-                placeholder="Mo ta tinh trang, thoi gian da dung, ly do ban, noi co the xem hang..."
+                placeholder="Mô tả tình trạng, thời gian đã dùng, lý do bán, nơi có thể xem hàng..."
                 value={formData.description}
                 onChange={(event) =>
                   onFormDataChange((previous) => ({ ...previous, description: event.target.value }))
@@ -186,7 +186,7 @@ export function ListingEditorForm({
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="price">Gia ban (VND)</Label>
+                <Label htmlFor="price">Giá bán (VND)</Label>
                 <Input
                   id="price"
                   placeholder="0"
@@ -197,10 +197,10 @@ export function ListingEditorForm({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="originalPrice">Gia goc (VND)</Label>
+                <Label htmlFor="originalPrice">Giá gốc (VND)</Label>
                 <Input
                   id="originalPrice"
-                  placeholder="Khong bat buoc"
+                  placeholder="Không bắt buộc"
                   value={formatCurrency(formData.originalPrice)}
                   onChange={(event) => onPriceChange('originalPrice', event.target.value)}
                   className="h-11 rounded-xl"
@@ -212,12 +212,12 @@ export function ListingEditorForm({
 
         <Card className="border-border/70 bg-white/90 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg">Phan loai</CardTitle>
+            <CardTitle className="text-lg">Phân loại</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Danh muc</Label>
+                <Label>Danh mục</Label>
                 <Select
                   value={formData.category}
                   onValueChange={(value) =>
@@ -226,7 +226,7 @@ export function ListingEditorForm({
                   required
                 >
                   <SelectTrigger className="h-11 rounded-xl">
-                    <SelectValue placeholder="Chon danh muc" />
+                    <SelectValue placeholder="Chọn danh mục" />
                   </SelectTrigger>
                   <SelectContent>
                     {categories.map((item) => (
@@ -239,7 +239,7 @@ export function ListingEditorForm({
               </div>
 
               <div className="space-y-2">
-                <Label>Tinh trang</Label>
+                <Label>Tình trạng</Label>
                 <Select
                   value={formData.condition}
                   onValueChange={(value) =>
@@ -248,7 +248,7 @@ export function ListingEditorForm({
                   required
                 >
                   <SelectTrigger className="h-11 rounded-xl">
-                    <SelectValue placeholder="Chon tinh trang" />
+                    <SelectValue placeholder="Chọn tình trạng" />
                   </SelectTrigger>
                   <SelectContent>
                     {Object.entries(conditionLabels).map(([key, label]) => (
@@ -262,7 +262,7 @@ export function ListingEditorForm({
             </div>
 
             <div className="space-y-2">
-              <Label>Nganh hoc lien quan</Label>
+              <Label>Ngành học liên quan</Label>
               <Select
                 value={formData.department}
                 onValueChange={(value) =>
@@ -271,7 +271,7 @@ export function ListingEditorForm({
                 required
               >
                 <SelectTrigger className="h-11 rounded-xl">
-                  <SelectValue placeholder="Chon nganh hoc" />
+                  <SelectValue placeholder="Chọn ngành học" />
                 </SelectTrigger>
                 <SelectContent>
                   {Object.entries(departmentLabels).map(([key, label]) => (
@@ -287,7 +287,7 @@ export function ListingEditorForm({
 
         <div className="flex gap-3">
           <Button type="button" variant="outline" className="h-11 flex-1 rounded-full" onClick={onCancel}>
-            Huy
+            Hủy
           </Button>
           <Button type="submit" className="h-11 flex-1 gap-2 rounded-full" disabled={isSubmitting || isUploading}>
             {isSubmitting ? (
@@ -317,8 +317,8 @@ export function ListingEditorPageShell({
   children,
 }: {
   backHref: string
-  pageTitle: string
-  pageDescription: string
+  pageTitle?: string
+  pageDescription?: string
   children: ReactNode
 }) {
   return (
@@ -331,10 +331,12 @@ export function ListingEditorPageShell({
                 <ArrowLeft className="h-5 w-5" />
               </Button>
             </Link>
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tight">{pageTitle}</h1>
-              <p className="mt-2 text-sm text-muted-foreground">{pageDescription}</p>
-            </div>
+            {pageTitle || pageDescription ? (
+              <div>
+                {pageTitle ? <h1 className="text-3xl font-semibold tracking-tight">{pageTitle}</h1> : null}
+                {pageDescription ? <p className="mt-2 text-sm text-muted-foreground">{pageDescription}</p> : null}
+              </div>
+            ) : null}
           </div>
         </div>
 

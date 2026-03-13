@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Info, Loader2, Save } from 'lucide-react'
 import { toast } from 'sonner'
-import { Header } from '@/components/header'
+import { AppShell } from '@/components/app-shell'
 import { listingsApi } from '@/lib/api'
 import type { Product } from '@/lib/types'
 import { useAuth } from '@/core/providers/auth-provider'
@@ -78,7 +78,7 @@ export default function EditPostPage({ params }: EditPostPageProps) {
         setProduct(detail)
 
         if (detail.seller.id !== user.id && user.role !== 'admin') {
-          toast.error('Ban khong co quyen sua bai dang nay')
+          toast.error('Bạn không có quyền sửa bài đăng này')
           router.replace('/dashboard?tab=posts')
           return
         }
@@ -96,7 +96,7 @@ export default function EditPostPage({ params }: EditPostPageProps) {
           nextImages: detail.images.map((url) => ({ url })),
         })
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'Khong tai du lieu bai dang duoc')
+        toast.error(error instanceof Error ? error.message : 'Không tải dữ liệu bài đăng được')
         router.replace('/dashboard?tab=posts')
       } finally {
         setLoadingData(false)
@@ -114,12 +114,12 @@ export default function EditPostPage({ params }: EditPostPageProps) {
     }
 
     if (!formData.category || !formData.condition || !formData.department) {
-      toast.error('Vui long nhap day du thong tin bat buoc')
+      toast.error('Vui lòng nhập đầy đủ thông tin bắt buộc')
       return
     }
 
     if (images.length === 0) {
-      toast.error('Vui long giu lai it nhat 1 anh cho bai dang')
+      toast.error('Vui lòng giữ lại ít nhất 1 ảnh cho bài đăng')
       return
     }
 
@@ -138,10 +138,10 @@ export default function EditPostPage({ params }: EditPostPageProps) {
           publicId: image.publicId,
         })),
       })
-      toast.success('Cap nhat bai dang thanh cong')
+      toast.success('Cập nhật bài đăng thành công')
       router.push('/dashboard?tab=posts')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Khong cap nhat bai dang duoc')
+      toast.error(error instanceof Error ? error.message : 'Không cập nhật bài đăng được')
     } finally {
       setIsSaving(false)
     }
@@ -157,70 +157,85 @@ export default function EditPostPage({ params }: EditPostPageProps) {
 
   if (!product) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Link href="/dashboard?tab=posts">
-          <Button variant="outline">Quay lai dashboard</Button>
-        </Link>
-      </div>
+      <AppShell
+        title="Sửa bài đăng"
+        description="Cập nhật thông tin bài đăng của bạn."
+        breadcrumbs={[
+          { label: 'Dashboard', href: '/dashboard?tab=posts' },
+          { label: 'Bài đăng của tôi', href: '/dashboard?tab=posts' },
+          { label: 'Sửa bài đăng' },
+        ]}
+      >
+        <div className="flex min-h-[320px] items-center justify-center">
+          <Link href="/dashboard?tab=posts">
+            <Button variant="outline">Quay lại dashboard</Button>
+          </Link>
+        </div>
+      </AppShell>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,_rgba(34,197,94,0.12),_transparent_24%),linear-gradient(180deg,_rgba(250,250,249,1)_0%,_rgba(244,244,245,1)_100%)]">
-      <Header />
+    <AppShell
+      title="Sửa bài đăng"
+      description="Cập nhật thông tin bài đăng của bạn."
+      breadcrumbs={[
+        { label: 'Dashboard', href: '/dashboard?tab=posts' },
+        { label: 'Bài đăng của tôi', href: '/dashboard?tab=posts' },
+        { label: 'Sửa bài đăng' },
+      ]}
+      contentClassName="max-w-none px-0 py-0"
+    >
+      <div className="bg-[radial-gradient(circle_at_top_right,_rgba(34,197,94,0.12),_transparent_24%),linear-gradient(180deg,_rgba(250,250,249,1)_0%,_rgba(244,244,245,1)_100%)]">
+        <ListingEditorPageShell backHref="/dashboard?tab=posts">
+          <ListingEditorForm
+            imageTitle="Hình ảnh bài đăng"
+            imageDescription="Thêm, xóa và sắp xếp lại bộ ảnh trước khi lưu thay đổi."
+            submitLabel="Lưu thay đổi"
+            submitPendingLabel="Đang lưu..."
+            submitIcon={Save}
+            formData={formData}
+            images={images}
+            categories={categories}
+            dragOver={dragOver}
+            isUploading={isUploading}
+            isSubmitting={isSaving}
+            fileInputRef={fileInputRef}
+            onSubmit={handleSubmit}
+            onCancel={() => router.back()}
+            onFormDataChange={setFormData}
+            onDragOverChange={setDragOver}
+            onPickFiles={handlePickFiles}
+            onUploadFiles={uploadFiles}
+            onRemoveImage={removeImage}
+            onPriceChange={handlePriceChange}
+            formatCurrency={formatCurrency}
+            sidebar={
+              <>
+                <Card className="border-primary/20 bg-primary/5 shadow-sm">
+                  <CardContent className="p-5">
+                    <h3 className="font-medium">Lưu ý</h3>
+                    <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+                      <li>- Bài đăng sửa xong vẫn theo trạng thái kiểm duyệt hiện tại.</li>
+                      <li>- Ảnh đầu tiên sẽ được dùng làm ảnh bìa.</li>
+                      <li>- Bạn có thể đổi trạng thái bán ngay trong Dashboard.</li>
+                    </ul>
+                  </CardContent>
+                </Card>
 
-      <ListingEditorPageShell
-        backHref="/dashboard?tab=posts"
-        pageTitle="Sua bai dang"
-        pageDescription="Cap nhat thong tin bai dang cua ban."
-      >
-        <ListingEditorForm
-          imageTitle="Hinh anh bai dang"
-          imageDescription="Them, xoa va sap xep lai bo anh truoc khi luu thay doi."
-          submitLabel="Luu thay doi"
-          submitPendingLabel="Dang luu..."
-          submitIcon={Save}
-          formData={formData}
-          images={images}
-          categories={categories}
-          dragOver={dragOver}
-          isUploading={isUploading}
-          isSubmitting={isSaving}
-          fileInputRef={fileInputRef}
-          onSubmit={handleSubmit}
-          onCancel={() => router.back()}
-          onFormDataChange={setFormData}
-          onDragOverChange={setDragOver}
-          onPickFiles={handlePickFiles}
-          onUploadFiles={uploadFiles}
-          onRemoveImage={removeImage}
-          onPriceChange={handlePriceChange}
-          formatCurrency={formatCurrency}
-          sidebar={
-            <>
-              <Card className="border-primary/20 bg-primary/5 shadow-sm">
-                <CardContent className="p-5">
-                  <h3 className="font-medium">Luu y</h3>
-                  <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-                    <li>- Bai dang sua xong van theo trang thai kiem duyet hien tai.</li>
-                    <li>- Anh dau tien se duoc dung lam anh bia.</li>
-                    <li>- Ban co the doi trang thai ban ngay trong Dashboard.</li>
-                  </ul>
-                </CardContent>
-              </Card>
-
-              <Card className="border-border/70 bg-white/90 shadow-sm">
-                <CardContent className="p-5">
-                  <p className="flex items-start gap-2 text-sm text-muted-foreground">
-                    <Info className="mt-0.5 h-4 w-4 shrink-0" />
-                    Co the thay doi thong tin va bo anh trong cung mot lan cap nhat.
-                  </p>
-                </CardContent>
-              </Card>
-            </>
-          }
-        />
-      </ListingEditorPageShell>
-    </div>
+                <Card className="border-border/70 bg-white/90 shadow-sm">
+                  <CardContent className="p-5">
+                    <p className="flex items-start gap-2 text-sm text-muted-foreground">
+                      <Info className="mt-0.5 h-4 w-4 shrink-0" />
+                      Có thể thay đổi thông tin và bộ ảnh trong cùng một lần cập nhật.
+                    </p>
+                  </CardContent>
+                </Card>
+              </>
+            }
+          />
+        </ListingEditorPageShell>
+      </div>
+    </AppShell>
   )
 }

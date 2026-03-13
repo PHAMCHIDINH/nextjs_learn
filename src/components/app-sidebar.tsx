@@ -11,6 +11,7 @@ import {
   PlusSquare,
   ShieldCheck,
   ShoppingBag,
+  User,
 } from 'lucide-react'
 import { departmentLabels } from '@/lib/types'
 import { useAuth } from '@/core/providers/auth-provider'
@@ -29,6 +30,7 @@ import {
   SidebarMenuItem,
   SidebarRail,
   SidebarSeparator,
+  SidebarTrigger,
 } from '@/shared/ui/sidebar'
 
 type NavItem = {
@@ -38,7 +40,7 @@ type NavItem = {
   exact?: boolean
 }
 
-const studentItems: NavItem[] = [
+const baseStudentItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, exact: true },
   { href: '/marketplace', label: 'Marketplace', icon: ShoppingBag },
   { href: '/post/new', label: 'Đăng tin', icon: PlusSquare },
@@ -50,6 +52,10 @@ const adminItems: NavItem[] = [{ href: '/admin', label: 'Admin panel', icon: Shi
 export function AppSidebar() {
   const pathname = usePathname()
   const { logout, user } = useAuth()
+
+  const studentItems = user
+    ? [...baseStudentItems, { href: `/users/${user.id}`, label: 'Hồ sơ của tôi', icon: User }]
+    : baseStudentItems
 
   const items = user?.role === 'admin' ? [...studentItems, ...adminItems] : studentItems
 
@@ -64,21 +70,24 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" variant="inset">
       <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild size="lg" tooltip="Chợ Sinh Viên">
-              <Link href="/">
-                <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <GraduationCap className="size-4" />
-                </div>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">Chợ Sinh Viên</span>
-                  <span className="truncate text-xs text-muted-foreground">shadcn app shell</span>
-                </div>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <div className="flex items-center gap-2">
+          <SidebarMenu className="min-w-0 flex-1">
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild size="lg" tooltip="Chợ Sinh Viên">
+                <Link href="/">
+                  <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                    <GraduationCap className="size-4" />
+                  </div>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-semibold">Chợ Sinh Viên</span>
+                    <span className="truncate text-xs text-muted-foreground">shadcn app shell</span>
+                  </div>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+          <SidebarTrigger className="hidden shrink-0 md:inline-flex group-data-[collapsible=icon]:hidden" />
+        </div>
       </SidebarHeader>
 
       <SidebarSeparator />
@@ -116,7 +125,7 @@ export function AppSidebar() {
             <AvatarFallback>{user?.name?.charAt(0)?.toUpperCase() ?? 'U'}</AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
-            <p className="truncate text-sm font-medium">{user?.name ?? 'Tai khoan'}</p>
+            <p className="truncate text-sm font-medium">{user?.name ?? 'Tài khoản'}</p>
             <p className="truncate text-xs text-muted-foreground">
               {user ? departmentLabels[user.department] : 'Chưa đăng nhập'}
             </p>

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Sparkles, Upload } from 'lucide-react'
 import { toast } from 'sonner'
-import { Header } from '@/components/header'
+import { AppShell } from '@/components/app-shell'
 import { listingsApi } from '@/lib/api'
 import type { Category, Condition, Department } from '@/lib/types'
 import { useAuth } from '@/core/providers/auth-provider'
@@ -74,12 +74,12 @@ export default function CreatePostPage() {
     }
 
     if (images.length === 0) {
-      toast.error('Vui long tai len it nhat 1 anh')
+      toast.error('Vui lòng tải lên ít nhất 1 ảnh')
       return
     }
 
     if (!formData.category || !formData.condition || !formData.department) {
-      toast.error('Vui long nhap day du thong tin bat buoc')
+      toast.error('Vui lòng nhập đầy đủ thông tin bắt buộc')
       return
     }
 
@@ -96,77 +96,81 @@ export default function CreatePostPage() {
         images: images.map((image) => ({ url: image.url, publicId: image.publicId })),
       })
 
-      toast.success('Dang tin thanh cong, bai dang dang cho duyet')
+      toast.success('Đăng tin thành công, bài đăng đang chờ duyệt')
       router.push('/dashboard?tab=posts')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Khong dang tin duoc')
+      toast.error(error instanceof Error ? error.message : 'Không đăng tin được')
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,_rgba(34,197,94,0.12),_transparent_24%),linear-gradient(180deg,_rgba(250,250,249,1)_0%,_rgba(244,244,245,1)_100%)]">
-      <Header />
+    <AppShell
+      title="Đăng tin mới"
+      description="Tạo bài đăng rõ ràng, ít bước và đủ thông tin để người mua chốt nhanh hơn."
+      breadcrumbs={[
+        { label: 'Marketplace', href: '/marketplace' },
+        { label: 'Đăng tin mới' },
+      ]}
+      contentClassName="max-w-none px-0 py-0"
+    >
+      <div className="bg-[radial-gradient(circle_at_top_right,_rgba(34,197,94,0.12),_transparent_24%),linear-gradient(180deg,_rgba(250,250,249,1)_0%,_rgba(244,244,245,1)_100%)]">
+        <ListingEditorPageShell backHref="/marketplace">
+          <ListingEditorForm
+            imageTitle="Hình ảnh sản phẩm"
+            imageDescription="Tải lên tối đa 5 ảnh. Ảnh đầu tiên sẽ là ảnh bìa của bài đăng."
+            submitLabel="Đăng tin"
+            submitPendingLabel="Đang đăng..."
+            submitIcon={Upload}
+            formData={formData}
+            images={images}
+            categories={categories}
+            dragOver={dragOver}
+            isUploading={isUploading}
+            isSubmitting={isLoading}
+            fileInputRef={fileInputRef}
+            onSubmit={handleSubmit}
+            onCancel={() => router.back()}
+            onFormDataChange={setFormData}
+            onDragOverChange={setDragOver}
+            onPickFiles={handlePickFiles}
+            onUploadFiles={uploadFiles}
+            onRemoveImage={removeImage}
+            onPriceChange={handlePriceChange}
+            formatCurrency={formatCurrency}
+            sidebar={
+              <>
+                <Card className="border-border/70 bg-zinc-950 text-white shadow-xl shadow-zinc-950/10">
+                  <CardContent className="p-6">
+                    <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10">
+                      <Sparkles className="h-5 w-5 text-emerald-300" />
+                    </div>
+                    <h2 className="text-xl font-semibold">Bài đăng tốt thường có gì?</h2>
+                    <ul className="mt-4 space-y-3 text-sm leading-7 text-zinc-300">
+                      <li>- Ảnh rõ, đủ sáng và chụp đúng món đồ.</li>
+                      <li>- Tiêu đề có tên sản phẩm, tình trạng và điểm nổi bật.</li>
+                      <li>- Mô tả trung thực để giảm hỏi đi hỏi lại trong chat.</li>
+                      <li>- Giá rõ ràng giúp người mua quyết định nhanh hơn.</li>
+                    </ul>
+                  </CardContent>
+                </Card>
 
-      <ListingEditorPageShell
-        backHref="/marketplace"
-        pageTitle="Dang tin moi"
-        pageDescription="Tao bai dang ro rang, it buoc va du thong tin de nguoi mua chot nhanh hon."
-      >
-        <ListingEditorForm
-          imageTitle="Hinh anh san pham"
-          imageDescription="Tai len toi da 5 anh. Anh dau tien se la anh bia cua bai dang."
-          submitLabel="Dang tin"
-          submitPendingLabel="Dang dang..."
-          submitIcon={Upload}
-          formData={formData}
-          images={images}
-          categories={categories}
-          dragOver={dragOver}
-          isUploading={isUploading}
-          isSubmitting={isLoading}
-          fileInputRef={fileInputRef}
-          onSubmit={handleSubmit}
-          onCancel={() => router.back()}
-          onFormDataChange={setFormData}
-          onDragOverChange={setDragOver}
-          onPickFiles={handlePickFiles}
-          onUploadFiles={uploadFiles}
-          onRemoveImage={removeImage}
-          onPriceChange={handlePriceChange}
-          formatCurrency={formatCurrency}
-          sidebar={
-            <>
-              <Card className="border-border/70 bg-zinc-950 text-white shadow-xl shadow-zinc-950/10">
-                <CardContent className="p-6">
-                  <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10">
-                    <Sparkles className="h-5 w-5 text-emerald-300" />
-                  </div>
-                  <h2 className="text-xl font-semibold">Bai dang tot thuong co gi?</h2>
-                  <ul className="mt-4 space-y-3 text-sm leading-7 text-zinc-300">
-                    <li>- Anh ro, du sang va chup dung mon do.</li>
-                    <li>- Tieu de co ten san pham, tinh trang va diem noi bat.</li>
-                    <li>- Mo ta trung thuc de giam hoi di hoi lai trong chat.</li>
-                    <li>- Gia ro rang giup nguoi mua quyet dinh nhanh hon.</li>
-                  </ul>
-                </CardContent>
-              </Card>
-
-              <Card className="border-primary/20 bg-primary/5 shadow-sm">
-                <CardContent className="p-5">
-                  <h3 className="font-medium">Luu y khi dang tin</h3>
-                  <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-                    <li>- Bai dang se di qua buoc duyet truoc khi hien thi cong khai.</li>
-                    <li>- Tranh dung tieu de mo hoac anh khong lien quan.</li>
-                    <li>- Co the chinh sua lai sau khi dang neu can cap nhat thong tin.</li>
-                  </ul>
-                </CardContent>
-              </Card>
-            </>
-          }
-        />
-      </ListingEditorPageShell>
-    </div>
+                <Card className="border-primary/20 bg-primary/5 shadow-sm">
+                  <CardContent className="p-5">
+                    <h3 className="font-medium">Lưu ý khi đăng tin</h3>
+                    <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+                      <li>- Bài đăng sẽ đi qua bước duyệt trước khi hiển thị công khai.</li>
+                      <li>- Tránh dùng tiêu đề mơ hồ hoặc ảnh không liên quan.</li>
+                      <li>- Có thể chỉnh sửa lại sau khi đăng nếu cần cập nhật thông tin.</li>
+                    </ul>
+                  </CardContent>
+                </Card>
+              </>
+            }
+          />
+        </ListingEditorPageShell>
+      </div>
+    </AppShell>
   )
 }

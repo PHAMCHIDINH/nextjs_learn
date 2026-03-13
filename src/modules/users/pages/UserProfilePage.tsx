@@ -3,8 +3,7 @@
 import { use, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { BadgeCheck, Loader2, MessageSquare, Star } from 'lucide-react'
-import { Footer } from '@/components/footer'
-import { Header } from '@/components/header'
+import { PageShell } from '@/components/page-shell'
 import { ProductCard } from '@/components/product-card'
 import { usersApi } from '@/lib/api'
 import { departmentLabels, type Product, type PublicUserProfile } from '@/lib/types'
@@ -82,31 +81,29 @@ export default function UserProfilePage({ params }: UserProfilePageProps) {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <PageShell>
+        <main className="flex min-h-[calc(100dvh-8rem)] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </main>
+      </PageShell>
     )
   }
 
   if (error || !profile) {
     return (
-      <div className="min-h-screen">
-        <Header />
+      <PageShell>
         <main className="container mx-auto px-4 py-16 text-center">
           <p className="text-sm text-destructive">{error ?? 'Khong tim thay nguoi dung'}</p>
           <Link href="/marketplace" className="mt-4 inline-flex">
             <Button variant="outline">Quay lai marketplace</Button>
           </Link>
         </main>
-        <Footer />
-      </div>
+      </PageShell>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,_rgba(250,250,249,1)_0%,_rgba(244,244,245,1)_100%)]">
-      <Header />
-
+    <PageShell className="bg-[linear-gradient(180deg,_rgba(250,250,249,1)_0%,_rgba(244,244,245,1)_100%)]">
       <main className="container mx-auto space-y-8 px-4 py-8">
         <Card className="border-border/70 bg-white/90 shadow-sm">
           <CardContent className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between">
@@ -188,8 +185,6 @@ export default function UserProfilePage({ params }: UserProfilePageProps) {
           )}
         </section>
       </main>
-
-      <Footer />
-    </div>
+    </PageShell>
   )
 }

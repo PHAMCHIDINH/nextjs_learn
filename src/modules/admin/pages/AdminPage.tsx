@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -34,7 +34,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/shared/ui/alert-dialog'
-import { cn } from '@/lib/utils'
+import { cn, formatPrice } from '@/lib/utils'
 import { adminApi, listingsApi, usersApi } from '@/lib/api'
 import { categoryLabels, conditionLabels, departmentLabels } from '@/lib/types'
 import type { Product, Report } from '@/lib/types'
@@ -82,7 +82,7 @@ export default function AdminPage() {
       setUserCount(users.length)
       setTotalListings(approvedMeta.meta.total + pending.meta.total + rejectedMeta.meta.total)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Khong tai du lieu admin duoc')
+      toast.error(error instanceof Error ? error.message : 'Không tải dữ liệu admin được')
     } finally {
       setLoading(false)
     }
@@ -97,22 +97,22 @@ export default function AdminPage() {
   const stats = useMemo(
     () => [
       {
-        label: 'Cho duyet',
+        label: 'Chờ duyệt',
         value: pendingTotal,
         icon: Clock,
         color: 'text-yellow-600',
         bg: 'bg-yellow-100',
       },
       {
-        label: 'Bi bao cao',
+        label: 'Bị báo cáo',
         value: pendingReportsTotal,
         icon: Flag,
         color: 'text-red-600',
         bg: 'bg-red-100',
       },
-      { label: 'Nguoi dung', value: userCount, icon: Users, color: 'text-blue-600', bg: 'bg-blue-100' },
+      { label: 'Người dùng', value: userCount, icon: Users, color: 'text-blue-600', bg: 'bg-blue-100' },
       {
-        label: 'Tong bai dang',
+        label: 'Tổng bài đăng',
         value: totalListings,
         icon: Package,
         color: 'text-green-600',
@@ -122,21 +122,14 @@ export default function AdminPage() {
     [pendingReportsTotal, pendingTotal, totalListings, userCount],
   )
 
-  const formatPrice = (price: number) =>
-    new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND',
-      maximumFractionDigits: 0,
-    }).format(price)
-
   const handleApprove = async (productId: string) => {
     try {
       await adminApi.approveListing(productId)
       setPendingList((prev) => prev.filter((p) => p.id !== productId))
       setPendingTotal((prev) => Math.max(0, prev - 1))
-      toast.success('Da duyet bai dang')
+      toast.success('Đã duyệt bài đăng')
     } catch {
-      toast.error('Khong duyet duoc bai dang')
+      toast.error('Không duyệt được bài đăng')
     }
   }
 
@@ -145,9 +138,9 @@ export default function AdminPage() {
       await adminApi.rejectListing(productId)
       setPendingList((prev) => prev.filter((p) => p.id !== productId))
       setPendingTotal((prev) => Math.max(0, prev - 1))
-      toast.success('Da tu choi bai dang')
+      toast.success('Đã từ chối bài đăng')
     } catch {
-      toast.error('Khong tu choi duoc bai dang')
+      toast.error('Không từ chối được bài đăng')
     }
   }
 
@@ -159,9 +152,9 @@ export default function AdminPage() {
       if (previousStatus === 'pending') {
         setPendingReportsTotal((prev) => Math.max(0, prev - 1))
       }
-      toast.success('Da xu ly bao cao')
+      toast.success('Đã xử lý báo cáo')
     } catch {
-      toast.error('Khong xu ly duoc bao cao')
+      toast.error('Không xử lý được báo cáo')
     }
   }
 
@@ -173,9 +166,9 @@ export default function AdminPage() {
       if (previousStatus === 'pending') {
         setPendingReportsTotal((prev) => Math.max(0, prev - 1))
       }
-      toast.success('Da bo qua bao cao')
+      toast.success('Đã bỏ qua báo cáo')
     } catch {
-      toast.error('Khong cap nhat duoc bao cao')
+      toast.error('Không cập nhật được báo cáo')
     }
   }
 
@@ -193,7 +186,7 @@ export default function AdminPage() {
       setPendingHasMore(response.meta.page < response.meta.totalPages)
       setPendingTotal(response.meta.total)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Khong tai them bai dang cho duyet')
+      toast.error(error instanceof Error ? error.message : 'Không tải thêm bài đăng chờ duyệt')
     } finally {
       setLoadingMorePending(false)
     }
@@ -212,7 +205,7 @@ export default function AdminPage() {
       setReportsPage(nextPage)
       setReportsHasMore(response.meta.page < response.meta.totalPages)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Khong tai them bao cao')
+      toast.error(error instanceof Error ? error.message : 'Không tải thêm báo cáo')
     } finally {
       setLoadingMoreReports(false)
     }
@@ -225,9 +218,9 @@ export default function AdminPage() {
   }
 
   const reportStatusLabels = {
-    pending: 'Cho xu ly',
-    reviewed: 'Da xem xet',
-    resolved: 'Da giai quyet',
+    pending: 'Chờ xử lý',
+    reviewed: 'Đã xem xét',
+    resolved: 'Đã giải quyết',
   }
 
   if (authLoading || loading) {
@@ -243,9 +236,9 @@ export default function AdminPage() {
       <div className="flex min-h-screen flex-col">
         <main className="flex flex-1 items-center justify-center">
           <div className="text-center">
-            <p className="mb-4 text-muted-foreground">Ban khong co quyen truy cap trang admin</p>
+            <p className="mb-4 text-muted-foreground">Bạn không có quyền truy cập trang admin</p>
             <Link href="/marketplace">
-              <Button>Ve marketplace</Button>
+              <Button>Về marketplace</Button>
             </Link>
           </div>
         </main>
@@ -256,12 +249,12 @@ export default function AdminPage() {
   return (
     <AppShell
       title="Admin Panel"
-      description="Quan ly bai dang va bao cao vi pham"
+      description="Quản lý bài đăng và báo cáo vi phạm"
       actions={
         <Link href="/dashboard">
           <Button variant="outline" className="gap-2">
             <ArrowLeft className="h-4 w-4" />
-            Ve dashboard
+            Về dashboard
           </Button>
         </Link>
       }
@@ -286,7 +279,7 @@ export default function AdminPage() {
             <TabsList>
               <TabsTrigger value="pending" className="gap-2">
                 <Clock className="h-4 w-4" />
-                Cho duyet
+                Chờ duyệt
                 {pendingTotal > 0 && (
                   <Badge variant="destructive" className="ml-1 h-5 w-5 rounded-full p-0 text-xs">
                     {pendingTotal}
@@ -295,7 +288,7 @@ export default function AdminPage() {
               </TabsTrigger>
               <TabsTrigger value="reports" className="gap-2">
                 <Flag className="h-4 w-4" />
-                Bao cao
+                Báo cáo
                 {pendingReportsTotal > 0 && (
                   <Badge variant="destructive" className="ml-1 h-5 w-5 rounded-full p-0 text-xs">
                     {pendingReportsTotal}
@@ -307,8 +300,8 @@ export default function AdminPage() {
             <TabsContent value="pending">
               <Card>
                 <CardHeader>
-                  <CardTitle>Bai dang cho duyet</CardTitle>
-                  <CardDescription>Xem xet va duyet cac bai dang moi tu nguoi dung</CardDescription>
+                  <CardTitle>Bài đăng chờ duyệt</CardTitle>
+                  <CardDescription>Xem xét và duyệt các bài đăng mới từ người dùng</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {pendingList.length > 0 ? (
@@ -355,29 +348,29 @@ export default function AdminPage() {
                               <div className="flex flex-row gap-2 lg:flex-col">
                                 <Button className="flex-1 gap-2 lg:flex-none" onClick={() => handleApprove(product.id)}>
                                   <CheckCircle2 className="h-4 w-4" />
-                                  Duyet
+                                  Duyệt
                                 </Button>
                                 <AlertDialog>
                                   <AlertDialogTrigger asChild>
                                     <Button variant="outline" className="flex-1 gap-2 text-destructive hover:text-destructive lg:flex-none">
                                       <XCircle className="h-4 w-4" />
-                                      Tu choi
+                                      Từ chối
                                     </Button>
                                   </AlertDialogTrigger>
                                   <AlertDialogContent>
                                     <AlertDialogHeader>
-                                      <AlertDialogTitle>Tu choi bai dang?</AlertDialogTitle>
+                                      <AlertDialogTitle>Từ chối bài đăng?</AlertDialogTitle>
                                       <AlertDialogDescription>
-                                        Bai dang se bi tu choi va nguoi dung se nhan duoc thong bao.
+                                        Bài đăng sẽ bị từ chối và người dùng sẽ nhận được thông báo.
                                       </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
-                                      <AlertDialogCancel>Huy</AlertDialogCancel>
+                                      <AlertDialogCancel>Hủy</AlertDialogCancel>
                                       <AlertDialogAction
                                         onClick={() => handleReject(product.id)}
                                         className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                       >
-                                        Tu choi
+                                        Từ chối
                                       </AlertDialogAction>
                                     </AlertDialogFooter>
                                   </AlertDialogContent>
@@ -394,10 +387,10 @@ export default function AdminPage() {
                             {loadingMorePending ? (
                               <>
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Dang tai...
+                                Đang tải...
                               </>
                             ) : (
-                              'Tai them'
+                              'Tải thêm'
                             )}
                           </Button>
                         </div>
@@ -406,8 +399,8 @@ export default function AdminPage() {
                   ) : (
                     <div className="flex flex-col items-center justify-center py-12 text-center">
                       <CheckCircle2 className="mb-4 h-12 w-12 text-green-500" />
-                      <h3 className="mb-2 font-semibold">Khong co bai dang cho duyet</h3>
-                      <p className="text-sm text-muted-foreground">Tat ca bai dang da duoc xu ly</p>
+                      <h3 className="mb-2 font-semibold">Không có bài đăng chờ duyệt</h3>
+                      <p className="text-sm text-muted-foreground">Tất cả bài đăng đã được xử lý</p>
                     </div>
                   )}
                 </CardContent>
@@ -417,8 +410,8 @@ export default function AdminPage() {
             <TabsContent value="reports">
               <Card>
                 <CardHeader>
-                  <CardTitle>Bao cao vi pham</CardTitle>
-                  <CardDescription>Xem xet cac bai dang bi nguoi dung bao cao</CardDescription>
+                  <CardTitle>Báo cáo vi phạm</CardTitle>
+                  <CardDescription>Xem xét các bài đăng bị người dùng báo cáo</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {reportsList.length > 0 ? (
@@ -446,13 +439,13 @@ export default function AdminPage() {
                                 <div className="mb-3 flex items-start gap-2 rounded-lg bg-destructive/10 p-3">
                                   <AlertTriangle className="h-5 w-5 flex-shrink-0 text-destructive" />
                                   <div>
-                                    <p className="font-medium text-destructive">Ly do bao cao</p>
+                                    <p className="font-medium text-destructive">Lý do báo cáo</p>
                                     <p className="text-sm">{report.reason}</p>
                                   </div>
                                 </div>
 
                                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                                  <span>Bao cao boi:</span>
+                                  <span>Báo cáo bởi:</span>
                                   <div className="flex items-center gap-2">
                                     <Avatar className="h-6 w-6">
                                       <AvatarImage src={report.reportedBy.avatar} />
@@ -471,29 +464,29 @@ export default function AdminPage() {
                                     <AlertDialogTrigger asChild>
                                       <Button variant="destructive" className="flex-1 gap-2 lg:flex-none">
                                         <XCircle className="h-4 w-4" />
-                                        Xoa bai dang
+                                        Xóa bài đăng
                                       </Button>
                                     </AlertDialogTrigger>
                                     <AlertDialogContent>
                                       <AlertDialogHeader>
-                                        <AlertDialogTitle>Xoa bai dang vi pham?</AlertDialogTitle>
+                                        <AlertDialogTitle>Xóa bài đăng vi phạm?</AlertDialogTitle>
                                         <AlertDialogDescription>
-                                          Bai dang se bi xoa va nguoi dang se nhan duoc canh bao.
+                                          Bài đăng sẽ bị xóa và người đăng sẽ nhận được cảnh báo.
                                         </AlertDialogDescription>
                                       </AlertDialogHeader>
                                       <AlertDialogFooter>
-                                        <AlertDialogCancel>Huy</AlertDialogCancel>
+                                        <AlertDialogCancel>Hủy</AlertDialogCancel>
                                         <AlertDialogAction
                                           onClick={() => handleResolveReport(report.id)}
                                           className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                         >
-                                          Xoa bai dang
+                                          Xóa bài đăng
                                         </AlertDialogAction>
                                       </AlertDialogFooter>
                                     </AlertDialogContent>
                                   </AlertDialog>
                                   <Button variant="outline" className="flex-1 lg:flex-none" onClick={() => handleDismissReport(report.id)}>
-                                    Bo qua
+                                    Bỏ qua
                                   </Button>
                                 </div>
                               )}
@@ -508,10 +501,10 @@ export default function AdminPage() {
                             {loadingMoreReports ? (
                               <>
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Dang tai...
+                                Đang tải...
                               </>
                             ) : (
-                              'Tai them'
+                              'Tải thêm'
                             )}
                           </Button>
                         </div>
@@ -520,8 +513,8 @@ export default function AdminPage() {
                   ) : (
                     <div className="flex flex-col items-center justify-center py-12 text-center">
                       <CheckCircle2 className="mb-4 h-12 w-12 text-green-500" />
-                      <h3 className="mb-2 font-semibold">Khong co bao cao nao</h3>
-                      <p className="text-sm text-muted-foreground">Tat ca bao cao da duoc xu ly</p>
+                      <h3 className="mb-2 font-semibold">Không có báo cáo nào</h3>
+                      <p className="text-sm text-muted-foreground">Tất cả báo cáo đã được xử lý</p>
                     </div>
                   )}
                 </CardContent>

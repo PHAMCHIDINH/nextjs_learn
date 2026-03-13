@@ -22,8 +22,7 @@ import {
 import { format, formatDistanceToNow } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import { toast } from 'sonner'
-import { Footer } from '@/components/footer'
-import { Header } from '@/components/header'
+import { PageShell } from '@/components/page-shell'
 import { ProductCard } from '@/components/product-card'
 import { ReportDialog } from '@/components/report-dialog'
 import { conversationsApi, listingsApi } from '@/lib/api'
@@ -35,7 +34,7 @@ import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Separator } from '@/shared/ui/separator'
-import { cn } from '@/lib/utils'
+import { cn, formatPrice } from '@/lib/utils'
 
 const statusColors = {
   selling: 'bg-emerald-500/12 text-emerald-700 border-emerald-200',
@@ -78,13 +77,6 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
     void run()
   }, [id])
-
-  const formatPrice = (price: number) =>
-    new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND',
-      maximumFractionDigits: 0,
-    }).format(price)
 
   const discount = useMemo(
     () => (product?.originalPrice ? Math.round((1 - product.price / product.originalPrice) * 100) : 0),
@@ -175,21 +167,18 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen flex-col">
-        <Header />
-        <main className="flex flex-1 items-center justify-center">
+      <PageShell>
+        <main className="flex min-h-[calc(100dvh-8rem)] items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </main>
-        <Footer />
-      </div>
+      </PageShell>
     )
   }
 
   if (!product) {
     return (
-      <div className="flex min-h-screen flex-col">
-        <Header />
-        <main className="flex flex-1 flex-col items-center justify-center px-4 text-center">
+      <PageShell>
+        <main className="flex min-h-[calc(100dvh-8rem)] flex-col items-center justify-center px-4 text-center">
           <ShoppingBag className="mb-4 h-16 w-16 text-muted-foreground" />
           <h1 className="mb-2 text-2xl font-bold">Sản phẩm không tồn tại</h1>
           <p className="mb-6 text-muted-foreground">Sản phẩm này có thể đã bị xóa hoặc hiện không còn hiển thị.</p>
@@ -197,15 +186,12 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             <Button>Quay lại chợ</Button>
           </Link>
         </main>
-        <Footer />
-      </div>
+      </PageShell>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,_rgba(250,250,249,1)_0%,_rgba(244,244,245,1)_100%)]">
-      <Header />
-
+    <PageShell className="bg-[linear-gradient(180deg,_rgba(250,250,249,1)_0%,_rgba(244,244,245,1)_100%)]">
       <main className="py-8">
         <div className="container mx-auto px-4">
           <div className="mb-6 flex items-center gap-2 text-sm text-muted-foreground">
@@ -442,8 +428,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
           ) : null}
         </div>
       </main>
-
-      <Footer />
-    </div>
+    </PageShell>
   )
 }
+
+

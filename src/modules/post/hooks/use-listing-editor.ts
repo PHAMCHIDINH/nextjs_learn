@@ -61,21 +61,21 @@ export const useListingEditor = ({
   const validateFiles = useCallback(
     (files: File[]) => {
       if (files.length === 0) {
-        return { valid: false, message: 'Khong co file nao duoc chon' }
+        return { valid: false, message: 'Không có file nào được chọn' }
       }
 
       if (images.length + files.length > MAX_IMAGE_COUNT) {
-        return { valid: false, message: `Toi da ${MAX_IMAGE_COUNT} anh` }
+        return { valid: false, message: `Tối đa ${MAX_IMAGE_COUNT} ảnh` }
       }
 
       const invalidType = files.find((file) => !ALLOWED_IMAGE_TYPES.has(file.type))
       if (invalidType) {
-        return { valid: false, message: 'Chi chap nhan JPG, PNG, WEBP' }
+        return { valid: false, message: 'Chỉ chấp nhận JPG, PNG, WEBP' }
       }
 
       const oversize = files.find((file) => file.size > MAX_IMAGE_SIZE)
       if (oversize) {
-        return { valid: false, message: 'Moi anh toi da 5MB' }
+        return { valid: false, message: 'Mỗi ảnh tối đa 5MB' }
       }
 
       return { valid: true, message: '' }
@@ -101,9 +101,9 @@ export const useListingEditor = ({
             publicId: image.publicId,
           })),
         ])
-        toast.success(`Da tai len ${response.data.length} anh`)
+        toast.success(`Đã tải lên ${response.data.length} ảnh`)
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'Khong tai anh len duoc')
+        toast.error(error instanceof Error ? error.message : 'Không tải ảnh lên được')
       } finally {
         setIsUploading(false)
       }

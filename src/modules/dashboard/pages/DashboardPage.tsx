@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
@@ -38,7 +38,7 @@ import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/shared/ui/sheet'
-import { cn } from '@/lib/utils'
+import { cn, formatPrice } from '@/lib/utils'
 import { conversationsApi, dashboardApi, listingsApi, uploadsApi, usersApi } from '@/lib/api'
 import type { Conversation, DashboardSummary, Department, Product, ProductStatus } from '@/lib/types'
 import { categoryLabels, departmentLabels, statusLabels } from '@/lib/types'
@@ -255,13 +255,6 @@ function DashboardContent() {
 
   const totalViews = summary?.totalViews ?? myProducts.reduce((acc, p) => acc + p.views, 0)
 
-  const formatPrice = (price: number) =>
-    new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND',
-      maximumFractionDigits: 0,
-    }).format(price)
-
   const handleDeletePost = async (productId: string) => {
     try {
       await listingsApi.remove(productId)
@@ -282,10 +275,10 @@ function DashboardContent() {
     try {
       const updated = await listingsApi.updateStatus(productId, nextStatus)
       setMyProducts((prev) => prev.map((item) => (item.id === productId ? updated : item)))
-      toast.success('Da cap nhat trang thai bai dang')
+      toast.success('Đã cập nhật trạng thái bài đăng')
     } catch (error) {
       setMyProducts((prev) => prev.map((item) => (item.id === productId ? previous : item)))
-      toast.error(error instanceof Error ? error.message : 'Khong cap nhat trang thai duoc')
+      toast.error(error instanceof Error ? error.message : 'Không cập nhật trạng thái được')
     }
   }
 
@@ -512,17 +505,17 @@ function DashboardContent() {
                               <DropdownMenuItem asChild>
                                 <Link href={`/post/${product.id}/edit`}>
                                   <Edit className="mr-2 h-4 w-4" />
-                                  Sua bai dang
+                                  Sửa bài đăng
                                 </Link>
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => void handleUpdateStatus(product.id, 'selling')}>
-                                Dat trang thai: {statusLabels.selling}
+                                Đặt trạng thái: {statusLabels.selling}
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => void handleUpdateStatus(product.id, 'reserved')}>
-                                Dat trang thai: {statusLabels.reserved}
+                                Đặt trạng thái: {statusLabels.reserved}
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => void handleUpdateStatus(product.id, 'sold')}>
-                                Dat trang thai: {statusLabels.sold}
+                                Đặt trạng thái: {statusLabels.sold}
                               </DropdownMenuItem>
                               <DropdownMenuItem className="text-destructive" onClick={() => handleDeletePost(product.id)}>
                                 <Trash2 className="mr-2 h-4 w-4" />

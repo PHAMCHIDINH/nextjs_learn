@@ -18,8 +18,7 @@ import {
   Users,
   Warehouse,
 } from 'lucide-react'
-import { Footer } from '@/components/footer'
-import { Header } from '@/components/header'
+import { PageShell } from '@/components/page-shell'
 import { statsApi } from '@/lib/api'
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar'
 import { Badge } from '@/shared/ui/badge'
@@ -165,9 +164,7 @@ export default function HomePage() {
   }, [stats])
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,_rgba(34,197,94,0.18),_transparent_28%),linear-gradient(180deg,_rgba(250,250,249,1)_0%,_rgba(244,244,245,1)_100%)]">
-      <Header />
-
+    <PageShell className="relative overflow-x-hidden bg-[radial-gradient(circle_at_top,_rgba(34,197,94,0.18),_transparent_28%),linear-gradient(180deg,_rgba(250,250,249,1)_0%,_rgba(244,244,245,1)_100%)]">
       <main className="relative">
         <section className="relative overflow-hidden border-b border-border/60">
           <div className="absolute inset-x-0 top-0 h-64 bg-[radial-gradient(circle_at_top_right,_rgba(245,158,11,0.16),_transparent_32%),radial-gradient(circle_at_top_left,_rgba(34,197,94,0.14),_transparent_30%)]" />
@@ -482,8 +479,6 @@ export default function HomePage() {
           </div>
         </section>
       </main>
-
-      <Footer />
-    </div>
+    </PageShell>
   )
 }

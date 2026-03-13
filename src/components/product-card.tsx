@@ -12,7 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/shared/ui/avatar'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent } from '@/shared/ui/card'
-import { cn } from '@/lib/utils'
+import { cn, formatPrice } from '@/lib/utils'
 import { listingsApi } from '@/lib/api'
 import type { Product } from '@/lib/types'
 import { categoryLabels, conditionLabels, departmentLabels, statusLabels } from '@/lib/types'
@@ -42,13 +42,6 @@ export function ProductCard({ product, variant = 'default', priority = false }: 
     setIsSaved(Boolean(product.isSaved))
     setSavedCount(product.savedCount)
   }, [product, user])
-
-  const formatPrice = (price: number) =>
-    new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND',
-      maximumFractionDigits: 0,
-    }).format(price)
 
   const discount = product.originalPrice ? Math.round((1 - product.price / product.originalPrice) * 100) : 0
 

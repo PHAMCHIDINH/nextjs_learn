@@ -22,7 +22,7 @@ import {
 import { format, formatDistanceToNow, isToday, isYesterday } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import { toast } from 'sonner'
-import { Header } from '@/components/header'
+import { AppShell } from '@/components/app-shell'
 import { conversationsApi, getApiBaseUrl, uploadsApi, usersApi } from '@/lib/api'
 import { useAuth } from '@/core/providers/auth-provider'
 import { authApi } from '@/modules/auth/services/auth.api'
@@ -44,7 +44,7 @@ import {
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/ui/dropdown-menu'
 import { Input } from '@/shared/ui/input'
 import { ScrollArea } from '@/shared/ui/scroll-area'
-import { cn } from '@/lib/utils'
+import { cn, formatPrice } from '@/lib/utils'
 
 const FALLBACK_POLL_MS = 6000
 const MESSAGE_ACK_TIMEOUT_MS = 10000
@@ -169,7 +169,7 @@ const formatMessageTime = (date: Date) => {
   }
 
   if (isYesterday(date)) {
-    return `Hom qua ${format(date, 'HH:mm')}`
+    return `Hôm qua ${format(date, 'HH:mm')}`
   }
 
   return format(date, 'dd/MM HH:mm')
@@ -235,16 +235,16 @@ function ConversationListPanel({
     <div className="flex h-full flex-col border-r border-border/70 bg-white/85">
       <div className="border-b border-border/70 p-4">
         <div className="mb-4 rounded-3xl border border-border/70 bg-zinc-950 px-4 py-4 text-white">
-          <p className="text-sm uppercase tracking-[0.18em] text-zinc-400">Hoi thoai</p>
-          <h2 className="mt-2 text-xl font-semibold">Chat theo tung san pham</h2>
+          <p className="text-sm uppercase tracking-[0.18em] text-zinc-400">Hội thoại</p>
+          <h2 className="mt-2 text-xl font-semibold">Chat theo từng sản phẩm</h2>
           <p className="mt-2 text-sm text-zinc-300">
-            Theo doi nguoi ban, san pham va thoi diem phan hoi trong cung mot noi.
+            Theo dõi người bán, sản phẩm và thời điểm phản hồi trong cùng một nơi.
           </p>
         </div>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Tim kiem hoi thoai..."
+            placeholder="Tìm kiếm hội thoại..."
             value={searchQuery}
             onChange={(event) => onSearchQueryChange(event.target.value)}
             className="h-11 rounded-full pl-10"
@@ -296,8 +296,8 @@ function ConversationListPanel({
                       </div>
                     ) : null}
                     <p className="mt-2 truncate text-sm text-muted-foreground">
-                      {conversation.lastMessage?.senderId === currentUserId ? 'Ban: ' : ''}
-                      {conversation.lastMessage?.content || 'Chua co tin nhan'}
+                      {conversation.lastMessage?.senderId === currentUserId ? 'Bạn: ' : ''}
+                      {conversation.lastMessage?.content || 'Chưa có tin nhắn'}
                     </p>
                   </div>
                   {conversation.unreadCount > 0 ? (
@@ -312,7 +312,7 @@ function ConversationListPanel({
         ) : (
           <div className="flex flex-col items-center justify-center p-8 text-center">
             <Search className="mb-2 h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">Khong tim thay hoi thoai</p>
+            <p className="text-sm text-muted-foreground">Không tìm thấy hội thoại</p>
           </div>
         )}
       </ScrollArea>
@@ -349,9 +349,9 @@ function ChatAreaPanel({
         <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
           <MessageSquare className="h-8 w-8 text-primary" />
         </div>
-        <h3 className="mb-2 text-xl font-semibold">Chon mot cuoc tro chuyen</h3>
+        <h3 className="mb-2 text-xl font-semibold">Chọn một cuộc trò chuyện</h3>
         <p className="max-w-sm text-sm text-muted-foreground">
-          Chon mot hoi thoai ben trai de bat dau nhan tin voi nguoi ban hoac nguoi mua.
+          Chọn một hội thoại bên trái để bắt đầu nhắn tin với người bán hoặc người mua.
         </p>
       </div>
     )
@@ -381,8 +381,8 @@ function ChatAreaPanel({
             <div className="truncate font-medium">{otherParticipant?.name}</div>
             <div className="truncate text-xs text-muted-foreground">
               {otherParticipant?.online
-                ? 'Dang hoat dong'
-                : `Hoat dong ${formatDistanceToNow(otherParticipant?.lastSeen || new Date(), {
+                ? 'Đang hoạt động'
+                : `Hoạt động ${formatDistanceToNow(otherParticipant?.lastSeen || new Date(), {
                   addSuffix: true,
                   locale: vi,
                 })}`}
@@ -397,17 +397,17 @@ function ChatAreaPanel({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={onViewProfile} disabled={!otherParticipant?.id}>
-              Xem ho so
+              Xem hồ sơ
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onToggleMute}>
-              {isMuted ? 'Bat thong bao' : 'Tat thong bao'}
+              {isMuted ? 'Bật thông báo' : 'Tắt thông báo'}
             </DropdownMenuItem>
             <DropdownMenuItem
               className="text-destructive"
               onClick={() => setBlockDialogOpen(true)}
               disabled={!otherParticipant?.id || isBlockingUser}
             >
-              {isBlockingUser ? 'Dang chan...' : 'Chan nguoi dung'}
+              {isBlockingUser ? 'Đang chặn...' : 'Chặn người dùng'}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -415,13 +415,13 @@ function ChatAreaPanel({
         <AlertDialog open={blockDialogOpen} onOpenChange={setBlockDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Chan nguoi dung nay?</AlertDialogTitle>
+              <AlertDialogTitle>Chặn người dùng này?</AlertDialogTitle>
               <AlertDialogDescription>
-                Sau khi chan, nguoi nay khong the gui tin nhan moi cho ban.
+                Sau khi chặn, người này không thể gửi tin nhắn mới cho bạn.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Huy</AlertDialogCancel>
+              <AlertDialogCancel>Hủy</AlertDialogCancel>
               <AlertDialogAction
                 onClick={async () => {
                   await onBlockUser()
@@ -429,7 +429,7 @@ function ChatAreaPanel({
                 }}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
-                Chan nguoi dung
+                Chặn người dùng
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -453,15 +453,9 @@ function ChatAreaPanel({
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{selectedConversation.product.title}</p>
-                <p className="text-sm font-semibold text-primary">
-                  {new Intl.NumberFormat('vi-VN', {
-                    style: 'currency',
-                    currency: 'VND',
-                    maximumFractionDigits: 0,
-                  }).format(selectedConversation.product.price)}
-                </p>
+                <p className="text-sm font-semibold text-primary">{formatPrice(selectedConversation.product.price)}</p>
               </div>
-              <Badge variant="outline">Xem san pham</Badge>
+              <Badge variant="outline">Xem sản phẩm</Badge>
             </CardContent>
           </Card>
         </Link>
@@ -526,7 +520,7 @@ function ChatAreaPanel({
             })
           ) : (
             <div className="flex flex-col items-center justify-center py-8 text-center">
-              <p className="text-sm text-muted-foreground">Bat dau cuoc tro chuyen voi {otherParticipant?.name}</p>
+              <p className="text-sm text-muted-foreground">Bắt đầu cuộc trò chuyện với {otherParticipant?.name}</p>
             </div>
           )}
           <div ref={messagesEndRef} />
@@ -539,7 +533,7 @@ function ChatAreaPanel({
             <div className="relative h-16 w-16 overflow-hidden rounded-xl border border-border">
               <Image src={pendingImagePreview} alt="Pending upload" fill className="object-cover" />
             </div>
-            <div className="flex-1 text-sm text-muted-foreground">1 image selected</div>
+            <div className="flex-1 text-sm text-muted-foreground">Đã chọn 1 ảnh</div>
             <Button variant="ghost" size="icon" className="rounded-full" onClick={onRemovePendingImage}>
               <X className="h-4 w-4" />
             </Button>
@@ -557,7 +551,7 @@ function ChatAreaPanel({
             {isUploadingImage ? <Loader2 className="h-5 w-5 animate-spin" /> : <ImagePlus className="h-5 w-5" />}
           </Button>
           <Input
-            placeholder="Nhap tin nhan..."
+            placeholder="Nhập tin nhắn..."
             value={draftText}
             onChange={(event) => onDraftTextChange(event.target.value)}
             onKeyDown={(event) => {
@@ -663,7 +657,7 @@ function ChatContent() {
       }
 
       saveMutedConversations(next)
-      toast.success(isMuted ? 'Da bat thong bao hoi thoai' : 'Da tat thong bao hoi thoai')
+      toast.success(isMuted ? 'Đã bật thông báo hội thoại' : 'Đã tắt thông báo hội thoại')
 
       return Array.from(next)
     })
@@ -697,7 +691,7 @@ function ChatContent() {
     setIsBlockingUser(true)
     try {
       await usersApi.blockUser(otherParticipant.id)
-      toast.success('Da chan nguoi dung')
+      toast.success('Đã chặn người dùng')
 
       setConversations((previous) => {
         const next = previous.filter((conversation) => conversation.id !== selectedConversation.id)
@@ -713,7 +707,7 @@ function ChatContent() {
         return next
       })
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Khong chan duoc nguoi dung')
+      toast.error(error instanceof Error ? error.message : 'Không chặn được người dùng')
     } finally {
       setIsBlockingUser(false)
     }
@@ -774,7 +768,7 @@ function ChatContent() {
         return data
       } catch {
         if (!silentError) {
-          toast.error('Khong tai duoc danh sach hoi thoai')
+          toast.error('Không tải được danh sách hội thoại')
         }
         return []
       } finally {
@@ -812,7 +806,7 @@ function ChatContent() {
         }
       } catch {
         if (!silentError) {
-          toast.error('Khong tai duoc tin nhan')
+          toast.error('Không tải được tin nhắn')
         }
       }
     },
@@ -868,7 +862,7 @@ function ChatContent() {
         setShowMobileChat(true)
         await syncMessages(nextConversation.id, { silentError: true })
       } catch {
-        toast.error('Khong tao duoc hoi thoai')
+        toast.error('Không tạo được hội thoại')
       }
     }
 
@@ -941,12 +935,12 @@ function ChatContent() {
           incomingMessage.senderId !== currentUserIdRef.current &&
           !mutedConversationIdsRef.current.has(conversationId)
         ) {
-          toast('Tin nhan moi', {
+          toast('Tin nhắn mới', {
             description:
               incomingMessage.content.trim() ||
               (incomingMessage.type === 'image'
-                ? 'Ban vua nhan 1 hinh anh'
-                : 'Ban vua nhan 1 tin nhan'),
+                ? 'Bạn vừa nhận 1 hình ảnh'
+                : 'Bạn vừa nhận 1 tin nhắn'),
           })
         }
         void syncConversationsRef.current({ silentError: true })
@@ -985,14 +979,14 @@ function ChatContent() {
 
     socket.on('chat:error', (rawError: ChatErrorEnvelope) => {
       if (!isRecord(rawError)) {
-        toast.error('Gui tin nhan that bai')
+        toast.error('Gửi tin nhắn thất bại')
         return
       }
 
       const message =
         typeof rawError.message === 'string' && rawError.message.trim()
           ? rawError.message
-          : 'Gui tin nhan that bai'
+          : 'Gửi tin nhắn thất bại'
       const clientTempId =
         typeof rawError.clientTempId === 'string' ? rawError.clientTempId : null
 
@@ -1057,12 +1051,12 @@ function ChatContent() {
     }
 
     if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
-      toast.error('Chi chap nhan JPG, PNG, WEBP')
+      toast.error('Chỉ chấp nhận JPG, PNG, WEBP')
       return
     }
 
     if (file.size > MAX_IMAGE_SIZE) {
-      toast.error('Moi anh toi da 5MB')
+      toast.error('Mỗi ảnh tối đa 5MB')
       return
     }
 
@@ -1102,7 +1096,7 @@ function ChatContent() {
             throw new Error('Image upload returned empty URL')
           }
         } catch (error) {
-          toast.error(error instanceof Error ? error.message : 'Khong tai anh len duoc')
+          toast.error(error instanceof Error ? error.message : 'Không tải ảnh lên được')
           return
         } finally {
           setIsUploadingImage(false)
@@ -1145,7 +1139,7 @@ function ChatContent() {
         })
 
         const timeoutId = window.setTimeout(() => {
-          markMessageFailed(clientTempId, 'Khong nhan duoc xac nhan tu server')
+          markMessageFailed(clientTempId, 'Không nhận được xác nhận từ server')
         }, MESSAGE_ACK_TIMEOUT_MS)
         pendingTimeoutsRef.current.set(clientTempId, timeoutId)
       } else {
@@ -1161,7 +1155,7 @@ function ChatContent() {
         } catch (error) {
           markMessageFailed(
             clientTempId,
-            error instanceof Error ? error.message : 'Khong gui duoc tin nhan',
+            error instanceof Error ? error.message : 'Không gửi được tin nhắn',
           )
         }
       }
@@ -1183,18 +1177,25 @@ function ChatContent() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <AppShell
+        title="Tin nhắn"
+        description="Theo dõi hội thoại theo từng sản phẩm để trao đổi nhanh hơn."
+        contentClassName="max-w-none px-3 py-4 md:px-4"
+      >
+        <div className="flex h-[calc(100dvh-8.5rem)] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </AppShell>
     )
   }
 
   return (
-    <div className="flex h-screen flex-col bg-[linear-gradient(180deg,_rgba(250,250,249,1)_0%,_rgba(244,244,245,1)_100%)]">
-      <Header />
-
-      <main className="flex flex-1 overflow-hidden px-4 py-4 md:px-5">
-        <div className="mx-auto flex h-full w-full max-w-7xl overflow-hidden rounded-[2rem] border border-border/70 bg-white/80 shadow-xl shadow-zinc-950/5 backdrop-blur">
+    <AppShell
+      title="Tin nhắn"
+      description="Theo dõi hội thoại theo từng sản phẩm để trao đổi nhanh hơn."
+      contentClassName="max-w-none px-3 py-4 md:px-4"
+    >
+      <div className="mx-auto flex h-[calc(100dvh-8.5rem)] w-full max-w-[112rem] overflow-hidden rounded-[2rem] border border-border/70 bg-white/80 shadow-xl shadow-zinc-950/5 backdrop-blur">
           <input
             ref={fileInputRef}
             type="file"
@@ -1288,9 +1289,8 @@ function ChatContent() {
               messagesEndRef={messagesEndRef}
             />
           </div>
-        </div>
-      </main>
-    </div>
+      </div>
+    </AppShell>
   )
 }
 
@@ -1298,7 +1298,7 @@ export default function ChatPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex h-screen items-center justify-center">
+        <div className="flex min-h-screen items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       }
@@ -1307,3 +1307,4 @@ export default function ChatPage() {
     </Suspense>
   )
 }
+
