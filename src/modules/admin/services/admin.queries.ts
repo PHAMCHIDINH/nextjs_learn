@@ -63,6 +63,11 @@ export const useApproveListingMutation = () =>
     mutationFn: (productId: string) => adminApi.approveListing(productId),
   })
 
+export const useRerunModerationMutation = () =>
+  useMutation({
+    mutationFn: (productId: string) => adminApi.rerunModeration(productId),
+  })
+
 export const useRejectListingMutation = () =>
   useMutation({
     mutationFn: (productId: string) => adminApi.rejectListing(productId),
